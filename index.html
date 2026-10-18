@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    <title>Kantin & Yemekhane Abonelik Takip</title>
+    <meta name="description" content="Kantin ve yemekhane için öğrenci abonelik, süre takibi ve kayıt yönetim sistemi.">
+
+    <!-- PWA & Mobile Web App Meta Tags (iOS & Android) -->
+    <meta name="theme-color" content="#0b1120">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Kantin Takip">
+    <meta name="application-name" content="Kantin Takip">
+    <meta name="msapplication-TileColor" content="#0b1120">
+    <meta name="format-detection" content="telephone=no">
+
+    <!-- Icons & Manifest -->
+    <link rel="icon" type="image/png" sizes="64x64" href="./favicon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png">
+    <link rel="manifest" href="./manifest.json" crossorigin="use-credentials">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-brand">
+                <div class="brand-avatar">
+                    <img src="icon-192.png" alt="Logo" class="brand-logo-img">
+                </div>
+                <div class="header-content">
+                    <h1>Kantin & Yemekhane</h1>
+                    <p id="connectionStatus"><span class="status-dot"></span> Abonelik Takip Sistemi</p>
+                </div>
+            </div>
+
+            <div class="header-actions">
+                <button id="menuModalBtn" class="icon-btn food-btn" title="Günün Yemek Menüsü (Yemekhane)">
+                    <i class="ph-bold ph-fork-knife"></i>
+                </button>
+                <button id="installAppBtn" class="icon-btn install-btn" title="Telefona Uygulama Olarak Yükle">
+                    <i class="ph ph-device-mobile"></i>
+                </button>
+                <button id="exportCsvBtn" class="icon-btn secondary-btn" title="Excel / CSV Olarak İndir">
+                    <i class="ph ph-file-arrow-down"></i>
+                </button>
+                <button id="addStudentBtn" class="icon-btn primary" title="Öğrenci Kaydet / Yeni Öğrenci Ekle"
+                    aria-label="Öğrenci Kaydet">
+                    <svg class="save-svg-icon" viewBox="0 0 24 24" width="22" height="22" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        aria-hidden="true">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <!-- Stats -->
+            <div class="stats-container">
+                <div class="stat-card" data-stat="active">
+                    <div class="stat-icon"><i class="ph ph-users-three"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="totalActiveCount">0</span>
+                        <span class="stat-label">Aktif Öğrenci</span>
+                    </div>
+                </div>
+                <div class="stat-card warning" data-stat="expiring">
+                    <div class="stat-icon"><i class="ph ph-hourglass-medium"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="totalExpiringCount">0</span>
+                        <span class="stat-label">Bitişi Yakın</span>
+                    </div>
+                </div>
+                <div class="stat-card expired" data-stat="expired">
+                    <div class="stat-icon"><i class="ph ph-warning-circle"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="totalExpiredCount">0</span>
+                        <span class="stat-label">Süresi Dolan</span>
+                    </div>
+                </div>
+                <div class="stat-card passive" data-stat="passive">
+                    <div class="stat-icon"><i class="ph ph-user-minus"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="totalPassiveCount">0</span>
+                        <span class="stat-label">Pasif Kayıt</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Günün Menüsü Preview Card -->
+            <div class="menu-preview-card" id="menuPreviewCard">
+                <div class="menu-preview-header">
+                    <div class="menu-preview-brand">
+                        <div class="menu-badge-icon"><i class="ph-bold ph-fork-knife"></i></div>
+                        <div class="menu-title-wrap">
+                            <h4>Günün Yemek Menüsü</h4>
+                            <span class="menu-date-sub" id="menuTodayDateText">Yükleniyor...</span>
+                        </div>
+                    </div>
+                    <button type="button" class="menu-manage-btn" id="openMenuBtn">
+                        <i class="ph-bold ph-pencil-simple"></i>
+                        <span>Menüyü Yönet</span>
+                    </button>
+                </div>
+                <div class="menu-items-scroll" id="menuPreviewList">
+                    <!-- Populated by MealManager -->
+                </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="search-bar">
+                <i class="ph ph-magnifying-glass"></i>
+                <input type="text" id="searchInput" placeholder="İsim, öğrenci no veya telefon ara..."
+                    autocomplete="off">
+                <button id="clearSearchBtn" class="clear-search-btn" style="display: none;">
+                    <i class="ph ph-x-circle"></i>
+                </button>
+            </div>
+
+            <!-- Filters -->
+            <div class="filters-scroll">
+                <div class="filters">
+                    <button class="filter-btn active" data-filter="all">Tümü (<span
+                            id="filterAllCount">0</span>)</button>
+                    <button class="filter-btn" data-filter="active">Aktif (<span
+                            id="filterActiveCount">0</span>)</button>
+                    <button class="filter-btn" data-filter="expiring">Yakında Biten (<span
+                            id="filterExpiringCount">0</span>)</button>
+                    <button class="filter-btn" data-filter="expired">Süresi Dolan (<span
+                            id="filterExpiredCount">0</span>)</button>
+                    <button class="filter-btn" data-filter="passive">Pasif (<span
+                            id="filterPassiveCount">0</span>)</button>
+                </div>
+            </div>
+
+            <!-- List Controls: Quick Sort Buttons & Dropdown -->
+            <div class="list-controls-bar">
+                <div class="quick-sort-row">
+                    <button type="button" class="sort-quick-btn active" id="sortByNameBtn" title="A'dan Z'ye Sırala">
+                        <i class="ph-bold ph-sort-ascending"></i>
+                        <span>A'dan Z'ye Sırala</span>
+                    </button>
+                    <button type="button" class="sort-quick-btn" id="sortByEndDateBtn"
+                        title="Abonelik Bitiş Tarihine Göre Sırala (En Yakın İlk)">
+                        <i class="ph-bold ph-clock-countdown"></i>
+                        <span>Abonelik Bitişine Göre Sırala</span>
+                    </button>
+                </div>
+                <div class="sort-control">
+                    <label for="sortSelect" class="sort-label">
+                        <i class="ph-bold ph-arrows-down-up"></i>
+                        <span>Tüm Sıralama:</span>
+                    </label>
+                    <div class="custom-select-wrapper">
+                        <select id="sortSelect" class="sort-select">
+                            <option value="name-asc" selected>İsim: A'dan Z'ye (Varsayılan)</option>
+                            <option value="end-date-asc">Bitiş Tarihi: En Yakından En Uzağa</option>
+                            <option value="end-date-desc">Bitiş Tarihi: En Uzaktan En Yakına</option>
+                            <option value="name-desc">İsim: Z'den A'ya</option>
+                            <option value="reg-date-desc">Kayıt Tarihi: En Yeni</option>
+                        </select>
+                        <i class="ph-bold ph-caret-down select-caret"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alphabet Letter Filter -->
+            <div class="alphabet-filter-container">
+                <div class="alphabet-header">
+                    <span class="alphabet-title">
+                        <i class="ph-bold ph-text-aa"></i>
+                        <span>Baş Harfe Göre Filtrele:</span>
+                    </span>
+                    <button id="clearLetterBtn" class="clear-letter-btn" type="button" style="display: none;"
+                        title="Harf Filtresini Temizle">
+                        <span id="activeLetterText">A</span>
+                        <i class="ph-bold ph-x"></i>
+                    </button>
+                </div>
+                <div class="alphabet-scroll">
+                    <div class="alphabet-chips" id="alphabetChips">
+                        <!-- Chips dynamically rendered by StudentManager -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Students List -->
+            <div class="students-list" id="studentsList">
+                <div class="loading-state">
+                    <div class="spinner"></div>
+                    <p>Veriler yükleniyor...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Admin Giriş Butonu (Sol alt köşe) -->
+    <button type="button" id="adminFab" class="admin-fab" title="Yönetim Paneli" aria-label="Yönetim Paneline Giriş">
+        <i class="ph-bold ph-shield-check"></i>
+        <span>Admin</span>
+    </button>
+
+    <!-- ============ YÖNETİM PANELİ (varsayılan olarak gizli) ============ -->
+    <section id="adminPanel" class="admin-panel" style="display: none;" aria-label="Yönetim Paneli">
+        <header class="admin-topbar">
+            <div class="admin-topbar-inner">
+                <div class="admin-brand">
+                    <div class="admin-brand-icon"><i class="ph-bold ph-shield-check"></i></div>
+                    <div class="admin-brand-text">
+                        <h2>Yönetim Paneli</h2>
+                        <p id="adminSourceStatus"><span class="status-dot"></span> Veri kaynağı: Cihaz hafızası</p>
+                    </div>
+                </div>
+                <div class="admin-topbar-actions">
+                    <button type="button" id="adminRefreshBtn" class="admin-ghost-btn" title="Verileri Yenile">
+                        <i class="ph-bold ph-arrows-clockwise"></i>
+                        <span>Yenile</span>
+                    </button>
+                    <button type="button" id="adminLogoutBtn" class="admin-logout-btn" title="Panelden Çıkış Yap">
+                        <i class="ph-bold ph-sign-out"></i>
+                        <span>Çıkış Yap</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main class="admin-main">
+            <!-- Özet Kartları -->
+            <div class="admin-stats">
+                <div class="admin-stat" data-tone="blue">
+                    <div class="admin-stat-icon"><i class="ph-bold ph-database"></i></div>
+                    <div class="admin-stat-info">
+                        <span class="admin-stat-value" id="adminStatTotal">0</span>
+                        <span class="admin-stat-label">Toplam Kayıt</span>
+                    </div>
+                </div>
+                <div class="admin-stat" data-tone="green">
+                    <div class="admin-stat-icon"><i class="ph-bold ph-user-check"></i></div>
+                    <div class="admin-stat-info">
+                        <span class="admin-stat-value" id="adminStatActive">0</span>
+                        <span class="admin-stat-label">Aktif Abonelik</span>
+                    </div>
+                </div>
+                <div class="admin-stat" data-tone="amber">
+                    <div class="admin-stat-icon"><i class="ph-bold ph-hourglass-medium"></i></div>
+                    <div class="admin-stat-info">
+                        <span class="admin-stat-value" id="adminStatExpiring">0</span>
+                        <span class="admin-stat-label">Bitişi Yakın</span>
+                    </div>
+                </div>
+                <div class="admin-stat" data-tone="red">
+                    <div class="admin-stat-icon"><i class="ph-bold ph-warning-circle"></i></div>
+                    <div class="admin-stat-info">
+                        <span class="admin-stat-value" id="adminStatExpired">0</span>
+                        <span class="admin-stat-label">Süresi Dolan</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Veri Tablosu Kartı -->
+            <div class="admin-card">
+                <div class="admin-tabs" role="tablist">
+                    <button type="button" class="admin-tab active" data-tab="students" role="tab" id="adminTabStudents">
+                        <i class="ph-bold ph-users-three"></i>
+                        <span>Öğrenci Kayıtları</span>
+                        <span class="admin-tab-count" id="adminTabStudentsCount">0</span>
+                    </button>
+                    <button type="button" class="admin-tab" data-tab="meals" role="tab" id="adminTabMeals">
+                        <i class="ph-bold ph-fork-knife"></i>
+                        <span>Yemek Menüsü</span>
+                        <span class="admin-tab-count" id="adminTabMealsCount">0</span>
+                    </button>
+                </div>
+
+                <div class="admin-toolbar">
+                    <div class="admin-search">
+                        <i class="ph ph-magnifying-glass"></i>
+                        <input type="search" id="adminSearchInput" placeholder="Kayıtlarda ara..." autocomplete="off">
+                    </div>
+                    <div class="admin-select-wrap">
+                        <select id="adminStatusFilter" aria-label="Kayıt filtresi"></select>
+                        <i class="ph-bold ph-caret-down"></i>
+                    </div>
+                    <button type="button" id="adminExportBtn" class="admin-ghost-btn"
+                        title="Görünen kayıtları CSV olarak indir">
+                        <i class="ph-bold ph-file-csv"></i>
+                        <span>CSV İndir</span>
+                    </button>
+                </div>
+
+                <div class="admin-table-wrap">
+                    <table class="admin-table" id="adminTable">
+                        <thead id="adminTableHead"></thead>
+                        <tbody id="adminTableBody"></tbody>
+                    </table>
+                    <div class="admin-empty" id="adminEmpty" hidden>
+                        <i class="ph-bold ph-tray"></i>
+                        <h3>Kayıt bulunamadı</h3>
+                        <p>Arama veya filtre kriterlerine uyan veri yok.</p>
+                    </div>
+                </div>
+
+                <div class="admin-table-footer">
+                    <span id="adminRowInfo">0 kayıt gösteriliyor</span>
+                    <span id="adminLastUpdated"></span>
+                </div>
+            </div>
+        </main>
+    </section>
+
+    <!-- Modal for adding/editing student -->
+    <div class="modal-overlay" id="studentModal">
+        <div class="modal">
+            <div class="modal-indicator"></div>
+            <div class="modal-header">
+                <div>
+                    <h2 id="modalTitle">Yeni Öğrenci Ekle</h2>
+                    <p class="modal-subtitle">Abonelik bilgilerini eksiksiz doldurun</p>
+                </div>
+                <button class="icon-btn close-btn" id="closeModalBtn" type="button" aria-label="Formu Kapat"
+                    title="Kapat">
+                    <i class="ph-bold ph-x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="studentForm">
+                    <input type="hidden" id="studentId">
+
+                    <div class="form-group">
+                        <label for="fullName"><i class="ph ph-user"></i> Ad Soyad</label>
+                        <input type="text" id="fullName" required placeholder="Örn: Ahmet Yılmaz" autocomplete="name">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="studentNumber"><i class="ph ph-identification-card"></i> Öğrenci No</label>
+                            <input type="text" id="studentNumber" required placeholder="Örn: 2024001"
+                                inputmode="numeric">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="phoneNumber"><i class="ph ph-phone"></i> Telefon (İsteğe bağlı)</label>
+                            <input type="tel" id="phoneNumber" placeholder="05XX XXX XX XX" inputmode="tel">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="registrationDate"><i class="ph ph-calendar"></i> Kayıt Tarihi</label>
+                            <input type="date" id="registrationDate" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="subscriptionEndDate"><i class="ph ph-calendar-check"></i> Bitiş Tarihi</label>
+                            <input type="date" id="subscriptionEndDate" required>
+                        </div>
+                    </div>
+
+                    <!-- Quick duration helper buttons -->
+                    <div class="quick-duration-wrapper">
+                        <span class="quick-duration-title">Hızlı Süre Ekle:</span>
+                        <div class="quick-duration-buttons">
+                            <button type="button" class="quick-date-btn" data-days="15">+15 Gün</button>
+                            <button type="button" class="quick-date-btn" data-days="30">+1 Ay (30 Gün)</button>
+                            <button type="button" class="quick-date-btn" data-days="60">+2 Ay</button>
+                            <button type="button" class="quick-date-btn" data-days="90">+3 Ay</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="status"><i class="ph ph-toggle-left"></i> Abonelik Durumu</label>
+                        <select id="status">
+                            <option value="active">Aktif</option>
+                            <option value="passive">Pasif</option>
+                        </select>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn secondary" id="cancelBtn">
+                            <i class="ph-bold ph-x"></i>
+                            <span>Kapat / Vazgeç</span>
+                        </button>
+                        <button type="submit" class="btn primary" id="saveStudentBtn">
+                            <svg class="save-svg-icon" viewBox="0 0 24 24" width="18" height="18" fill="none"
+                                stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+                                aria-hidden="true">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                            <span>Öğrenci Kaydet</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal (Delete confirmation) -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal confirm-modal">
+            <div class="confirm-icon-wrapper">
+                <i class="ph ph-trash"></i>
+            </div>
+            <h3 id="confirmTitle">Kaydı Sil</h3>
+            <p id="confirmMessage">Bu öğrencinin abonelik kaydı silinecektir. Devam etmek istiyor musunuz?</p>
+            <div class="modal-actions">
+                <button type="button" class="btn secondary" id="confirmCancelBtn">
+                    <i class="ph-bold ph-x"></i>
+                    <span>Vazgeç</span>
+                </button>
+                <button type="button" class="btn danger" id="confirmOkBtn">
+                    <i class="ph ph-trash"></i>
+                    <span>Evet, Sil</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meal Menu Modal (Yemekhane Yemek Listesi Sistemi) -->
+    <div class="modal-overlay" id="mealModal">
+        <div class="modal meal-modal">
+            <div class="modal-indicator"></div>
+            <div class="modal-header">
+                <div class="meal-header-brand">
+                    <div class="meal-avatar-icon">
+                        <i class="ph-bold ph-fork-knife"></i>
+                    </div>
+                    <div>
+                        <h2>Yemek Listesi</h2>
+                        <p class="modal-subtitle">Günlük yemekhane menüsü yönetimi ve takibi</p>
+                    </div>
+                </div>
+                <button class="icon-btn close-btn" id="closeMealModalBtn" type="button" aria-label="Menüyü Kapat"
+                    title="Kapat">
+                    <i class="ph-bold ph-x"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <!-- Date Picker & WhatsApp Share bar -->
+                <div class="meal-date-toolbar">
+                    <div class="form-group meal-date-group">
+                        <label for="mealSelectedDate"><i class="ph-bold ph-calendar"></i> Tarih Seçin:</label>
+                        <input type="date" id="mealSelectedDate">
+                    </div>
+                    <button type="button" class="btn-share-whatsapp" id="shareMenuWhatsappBtn"
+                        title="Günün menüsünü WhatsApp ile velilere/öğrencilere gönder">
+                        <i class="ph-bold ph-whatsapp-logo"></i>
+                        <span>WhatsApp ile Paylaş</span>
+                    </button>
+                </div>
+
+                <!-- Add Meal Form -->
+                <form id="mealForm" class="meal-form-box">
+                    <div class="meal-form-title">
+                        <i class="ph-bold ph-plus-circle"></i>
+                        <span>Menüye Yemek Ekle</span>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="mealCategory"><i class="ph-bold ph-tag"></i> Kategori</label>
+                            <select id="mealCategory" required>
+                                <option value="Çorba">🥣 Çorba</option>
+                                <option value="Ana Yemek" selected>🍗 Ana Yemek</option>
+                                <option value="Pilav / Makarna">🍚 Pilav / Makarna</option>
+                                <option value="Tatlı / Meyve">🍰 Tatlı / Meyve</option>
+                                <option value="Salata / Meze">🥗 Salata / Meze</option>
+                                <option value="İçecek">🥤 İçecek</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="mealName"><i class="ph-bold ph-cooking-pot"></i> Yemek Adı</label>
+                            <input type="text" id="mealName" required placeholder="Örn: Orman Kebabı"
+                                autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="mealNote"><i class="ph-bold ph-info"></i> Kalori / Not (İsteğe bağlı)</label>
+                            <input type="text" id="mealNote" placeholder="Örn: 320 kcal">
+                        </div>
+                        <div class="form-group meal-submit-wrap">
+                            <label class="hidden-label">&nbsp;</label>
+                            <button type="submit" class="btn primary" id="addMealBtn">
+                                <i class="ph-bold ph-plus"></i>
+                                <span>Yemeği Ekle</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Preset Sample Menu Button -->
+                    <div class="preset-menu-wrap">
+                        <button type="button" class="btn-preset-menu" id="addSampleMenuBtn">
+                            <i class="ph-bold ph-sparkle"></i>
+                            <span>Örnek 4 Kap Menü Ekle (Çorba, Ana Yemek, Pilav, Tatlı)</span>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Meals of the Selected Day -->
+                <div class="meal-items-section">
+                    <div class="meal-items-header">
+                        <h4 id="mealListDateTitle">Seçili Günün Menüsü</h4>
+                        <span class="meal-count-badge" id="mealCountBadge">0 Yemek</span>
+                    </div>
+
+                    <div class="meal-items-list" id="mealItemsList">
+                        <!-- Meal cards populated by MealManager -->
+                    </div>
+                </div>
+
+                <div class="modal-actions" style="margin-top: 20px;">
+                    <button type="button" class="btn secondary full-width" id="closeMealDoneBtn">
+                        <i class="ph-bold ph-check"></i>
+                        <span>Tamamla ve Kapat</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Universal App Installation Modal (iOS & Android) -->
+    <div class="modal-overlay" id="installAppModal">
+        <div class="modal install-app-modal">
+            <div class="modal-indicator"></div>
+            <div class="modal-header">
+                <div class="header-brand">
+                    <div class="brand-avatar sm">
+                        <img src="icon-192.png" alt="Logo" class="brand-logo-img">
+                    </div>
+                    <div>
+                        <h3>Telefona Uygulama Olarak Yükle</h3>
+                        <p class="modal-subtitle">Mağazaya gerek olmadan ana ekranınıza ekleyin</p>
+                    </div>
+                </div>
+                <button class="icon-btn close-btn" id="closeInstallModalBtn" type="button" aria-label="Pencereyi Kapat"
+                    title="Kapat">
+                    <i class="ph-bold ph-x"></i>
+                </button>
+            </div>
+
+            <!-- Platform Tabs -->
+            <div class="install-tabs">
+                <button type="button" class="install-tab-btn active" data-platform="ios">
+                    <i class="ph ph-apple-logo"></i> iPhone (iOS)
+                </button>
+                <button type="button" class="install-tab-btn" data-platform="android">
+                    <i class="ph ph-android-logo"></i> Android
+                </button>
+                <button type="button" class="install-tab-btn" data-platform="desktop">
+                    <i class="ph ph-laptop"></i> PC / Mac
+                </button>
+            </div>
+
+            <div class="install-tab-content">
+                <!-- iOS Panel -->
+                <div class="platform-panel active" id="panel-ios">
+                    <div class="install-guide-box">
+                        <div class="guide-step">
+                            <span class="step-num">1</span>
+                            <div class="step-text">
+                                <strong>Safari</strong> ile bu sayfayı açın ve alt menüdeki
+                                <span class="ios-step-badge"><i class="ph ph-export"></i> Paylaş</span> butonuna
+                                dokunun.
+                            </div>
+                        </div>
+                        <div class="guide-step">
+                            <span class="step-num">2</span>
+                            <div class="step-text">
+                                Açılan menüyü aşağı kaydırıp
+                                <span class="ios-step-badge"><i class="ph ph-plus-square"></i> Ana Ekrana Ekle</span>
+                                seçeneğine dokunun.
+                            </div>
+                        </div>
+                        <div class="guide-step">
+                            <span class="step-num">3</span>
+                            <div class="step-text">
+                                Sağ üstteki <strong>Ekle</strong> butonuna basın. Uygulama ana ekranınıza gerçek bir iOS
+                                uygulaması gibi eklenecektir!
+                            </div>
+                        </div>
+                    </div>
+                    <div class="install-note">
+                        <i class="ph ph-info"></i>
+                        <span>Not: iPhone'da bu işlem için Google Chrome yerine <strong>Safari</strong> kullanılması
+                            gerekir.</span>
+                    </div>
+                </div>
+
+                <!-- Android Panel -->
+                <div class="platform-panel" id="panel-android">
+                    <div id="androidNativePromptWrapper" style="display: none; margin-bottom: 14px;">
+                        <button type="button" class="btn primary full-width" id="directInstallBtn">
+                            <i class="ph ph-download-simple"></i>
+                            <span>Tek Tıkla Uygulamayı İndir / Yükle</span>
+                        </button>
+                    </div>
+
+                    <div class="install-guide-box">
+                        <div class="guide-step">
+                            <span class="step-num">1</span>
+                            <div class="step-text">
+                                <strong>Chrome</strong> veya tarayıcınızın sağ üstündeki
+                                <span class="ios-step-badge"><i class="ph ph-dots-three-vertical"></i> Üç Nokta
+                                    Menü</span>'ye dokunun.
+                            </div>
+                        </div>
+                        <div class="guide-step">
+                            <span class="step-num">2</span>
+                            <div class="step-text">
+                                Menüden
+                                <span class="ios-step-badge"><i class="ph ph-download-simple"></i> Uygulamayı
+                                    Yükle</span> veya
+                                <span class="ios-step-badge"><i class="ph ph-plus-square"></i> Ana Ekrana Ekle</span>'yi
+                                seçin.
+                            </div>
+                        </div>
+                        <div class="guide-step">
+                            <span class="step-num">3</span>
+                            <div class="step-text">
+                                <strong>Yükle</strong> butonuna basarak onaylayın. Uygulama telefonun menüsüne ve ana
+                                ekranına kurulur.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Desktop Panel -->
+                <div class="platform-panel" id="panel-desktop">
+                    <div class="install-guide-box">
+                        <div class="guide-step">
+                            <span class="step-num">1</span>
+                            <div class="step-text">
+                                Google Chrome veya Microsoft Edge adres çubuğunun sağ tarafındaki
+                                <span class="ios-step-badge"><i class="ph ph-download-simple"></i> Yükle</span>
+                                simgesine tıklayın.
+                            </div>
+                        </div>
+                        <div class="guide-step">
+                            <span class="step-num">2</span>
+                            <div class="step-text">
+                                <strong>Yükle</strong> butonuna basarak masaüstü uygulaması olarak kullanmaya başlayın.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-actions" style="margin-top: 18px;">
+                <button type="button" class="btn secondary full-width" id="closeInstallDoneBtn">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Giriş (Şifre) Modalı -->
+    <div class="modal-overlay admin-login-overlay" id="adminLoginModal">
+        <div class="modal admin-login-modal" role="dialog" aria-labelledby="adminLoginTitle">
+            <div class="admin-login-icon"><i class="ph-bold ph-lock-key"></i></div>
+            <h3 id="adminLoginTitle">Yönetici Girişi</h3>
+            <p class="modal-subtitle">Yönetim paneline erişmek için şifrenizi girin.</p>
+            <form id="adminLoginForm" autocomplete="off" novalidate>
+                <div class="form-group">
+                    <label for="adminPassword"><i class="ph ph-key"></i> Şifre</label>
+                    <div class="admin-pass-field">
+                        <input type="password" id="adminPassword" placeholder="••••••••"
+                            autocomplete="current-password">
+                        <button type="button" id="adminTogglePass" class="admin-pass-toggle"
+                            aria-label="Şifreyi göster">
+                            <i class="ph ph-eye"></i>
+                        </button>
+                    </div>
+                    <span class="admin-login-error" id="adminLoginError" role="alert"></span>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn secondary" id="adminLoginCancelBtn">
+                        <i class="ph-bold ph-x"></i>
+                        <span>Vazgeç</span>
+                    </button>
+                    <button type="submit" class="btn primary" id="adminLoginSubmitBtn">
+                        <i class="ph-bold ph-sign-in"></i>
+                        <span>Giriş Yap</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            // Yeni SW devraldığında sayfayı bir kez otomatik yenile
+            var hadController = !!navigator.serviceWorker.controller;
+            var refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', function () {
+                if (!hadController) { hadController = true; return; }
+                if (refreshing) return;
+                refreshing = true;
+                window.location.reload();
+            });
+
+            function registerServiceWorker() {
+                navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' })
+                    .then(function (reg) {
+                        console.log('PWA ServiceWorker kayıt başarılı:', reg.scope);
+                        reg.update();
+                        document.addEventListener('visibilitychange', function () {
+                            if (document.visibilityState === 'visible') reg.update();
+                        });
+                    })
+                    .catch(function (err) {
+                        console.warn('PWA ServiceWorker kayıt hatası:', err);
+                    });
+            }
+
+            if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                registerServiceWorker();
+            } else {
+                window.addEventListener('load', registerServiceWorker);
+            }
+        }
+    </script>
+
+    <script type="module" src="script.js"></script>
+</body>
+
+</html>

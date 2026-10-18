@@ -1,0 +1,75 @@
+{
+  "id": "./",
+  "name": "Kantin & Yemekhane Abonelik Sistemi",
+  "short_name": "Kantin Takip",
+  "description": "Kantin ve yemekhane için öğrenci abonelik, süre takibi ve kayıt yönetim sistemi.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#0b1120",
+  "theme_color": "#0b1120",
+  "lang": "tr",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "./favicon.png",
+      "sizes": "64x64",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./app-icon.jpg",
+      "sizes": "1024x1024",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Yeni Öğrenci Ekle",
+      "short_name": "Ekle",
+      "description": "Yeni öğrenci abonelik kaydı oluştur",
+      "url": "./index.html?action=new",
+      "icons": [{ "src": "./icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Süresi Dolanlar",
+      "short_name": "Bitenler",
+      "description": "Süresi dolan abonelikleri görüntüle",
+      "url": "./index.html?filter=expired",
+      "icons": [{ "src": "./icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}
