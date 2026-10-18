@@ -32,6 +32,24 @@ try {
     console.warn("Firebase bulut bağlantısı yüklenemedi. Telefon hafızası (localStorage) aktif:", e);
 }
 
+// ============================================================
+// ADMIN OTURUM VE YETKİ KONTROL ALTYAPISI
+// ============================================================
+const ADMIN_PASSWORD = 'celik145346';
+const ADMIN_SESSION_KEY = 'kantin_admin_oturum_v1';
+
+/**
+ * Mevcut kullanıcının yönetici yetkisine sahip olup olmadığını döner.
+ */
+function isAdmin() {
+    try {
+        return sessionStorage.getItem(ADMIN_SESSION_KEY) === '1';
+    } catch (e) {
+        return false;
+    }
+}
+window.isAdmin = isAdmin;
+
 class StudentManager {
     constructor() {
         // 1. Önce telefonun yerel hafızasından (localStorage) kayıtları anında yükle
@@ -67,6 +85,7 @@ class StudentManager {
         this.addStudentBtn = document.getElementById('addStudentBtn');
         this.exportCsvBtn = document.getElementById('exportCsvBtn');
         this.installAppBtn = document.getElementById('installAppBtn');
+        this.adminActiveBar = document.getElementById('adminActiveBar');
 
         // Sorting & Alphabet Filter
         this.sortSelect = document.getElementById('sortSelect');
@@ -610,6 +629,11 @@ class StudentManager {
 
         try {
             if (this.editingId) {
+                // Standart kullanıcı düzenleme yapamaz
+                if (!isAdmin()) {
+                    this.showToast('Öğrenci düzenleme yetkisi sadece yöneticilere aittir.', 'warning');
+                    return;
+                }
                 // 1. Yerel hafızada hemen güncelle ve kaydet
                 const index = this.students.findIndex(s => s.id === this.editingId);
                 if (index !== -1) {
@@ -659,6 +683,10 @@ class StudentManager {
     }
 
     async toggleStatus(id) {
+        if (!isAdmin()) {
+            this.showToast('Durum değiştirme yetkisi sadece yöneticilere aittir.', 'warning');
+            return;
+        }
         this.triggerHaptic();
         const student = this.students.find(s => s.id === id);
         if (student) {
@@ -683,6 +711,10 @@ class StudentManager {
     }
 
     async renewSubscription(id, days = 30) {
+        if (!isAdmin()) {
+            this.showToast('Abonelik süresi uzatma yetkisi sadece yöneticilere aittir.', 'warning');
+            return;
+        }
         this.triggerHaptic();
         const student = this.students.find(s => s.id === id);
         if (!student) return;
@@ -719,6 +751,10 @@ class StudentManager {
     }
 
     confirmDelete(id) {
+        if (!isAdmin()) {
+            this.showToast('Öğrenci silme yetkisi sadece yöneticilere aittir.', 'warning');
+            return;
+        }
         this.triggerHaptic();
         const student = this.students.find(s => s.id === id);
         if (!student) return;
@@ -736,6 +772,10 @@ class StudentManager {
     }
 
     async executeDelete() {
+        if (!isAdmin()) {
+            this.showToast('Öğrenci silme yetkisi sadece yöneticilere aittir.', 'warning');
+            return;
+        }
         if (!this.studentToDelete) return;
         this.triggerHaptic();
 
@@ -761,6 +801,10 @@ class StudentManager {
     }
 
     editStudent(id) {
+        if (!isAdmin()) {
+            this.showToast('Öğrenci düzenleme yetkisi sadece yöneticilere aittir.', 'warning');
+            return;
+        }
         this.triggerHaptic();
         const student = this.students.find(s => s.id === id);
         if (student) {
@@ -985,6 +1029,10 @@ class StudentManager {
     }
 
     exportToCSV() {
+        if (!isAdmin()) {
+            this.showToast('Verileri dışa aktarma yetkisi sadece yöneticilere aittir.', 'warning');
+            return;
+        }
         if (this.students.length === 0) {
             this.showToast('Dışa aktarılacak kayıt bulunmuyor.', 'warning');
             return;
@@ -1023,6 +1071,20 @@ class StudentManager {
         this.updateStats();
         this.updateAlphabetChips();
         if (window.adminPanel && window.adminPanel.isOpen) window.adminPanel.refresh();
+
+        // Standart kullanıcı ve Admin yetki arayüzü güncellemeleri
+        const adminMode = isAdmin();
+        if (this.exportCsvBtn) {
+            this.exportCsvBtn.style.display = adminMode ? '' : 'none';
+        }
+        const openMenuBtn = document.getElementById('openMenuBtn');
+        if (openMenuBtn) {
+            openMenuBtn.style.display = adminMode ? '' : 'none';
+        }
+        if (this.adminActiveBar) {
+            this.adminActiveBar.style.display = adminMode ? 'flex' : 'none';
+        }
+
         const filteredStudents = this.getFilteredStudents();
 
         if (filteredStudents.length === 0) {
@@ -1139,6 +1201,7 @@ class StudentManager {
 
                     ${contactButtonsHtml}
                     
+                    ${adminMode ? `
                     <div class="card-actions-wrapper">
                         <div class="card-quick-bar">
                             <button class="action-btn renew-btn" onclick="app.renewSubscription('${student.id}', 30)" title="Aboneliği 1 ay uzat">
@@ -1158,6 +1221,7 @@ class StudentManager {
                             </button>
                         </div>
                     </div>
+                    ` : ''}
                 </div>
             `;
         }).join('');
@@ -1385,6 +1449,11 @@ class MealManager {
     }
 
     handleAddMeal() {
+        if (!isAdmin()) {
+            if (window.app) window.app.showToast('Yemek menüsü güncelleme yetkisi sadece yöneticilere aittir.', 'warning');
+            return;
+        }
+
         const name = this.mealName ? this.mealName.value.trim() : '';
         const category = this.mealCategory ? this.mealCategory.value : 'Ana Yemek';
         const note = this.mealNote ? this.mealNote.value.trim() : '';
@@ -1419,6 +1488,10 @@ class MealManager {
     }
 
     deleteMeal(id) {
+        if (!isAdmin()) {
+            if (window.app) window.app.showToast('Yemek menüsü güncelleme yetkisi sadece yöneticilere aittir.', 'warning');
+            return;
+        }
         this.meals = this.meals.filter(m => m.id !== id);
         this.saveMeals();
 
@@ -1431,6 +1504,10 @@ class MealManager {
     }
 
     addSampleMenu() {
+        if (!isAdmin()) {
+            if (window.app) window.app.showToast('Yemek menüsü güncelleme yetkisi sadece yöneticilere aittir.', 'warning');
+            return;
+        }
         const targetDate = this.mealSelectedDate ? this.mealSelectedDate.value : this.selectedDate;
         const samples = [
             { category: 'Çorba', name: 'Ezogelin Çorbası', note: '150 kcal' },
@@ -1520,6 +1597,7 @@ class MealManager {
             return;
         }
 
+        const adminMode = isAdmin();
         this.mealItemsList.innerHTML = dayMeals.map(meal => `
             <div class="meal-item-card">
                 <div class="meal-item-info">
@@ -1527,9 +1605,11 @@ class MealManager {
                     <span class="meal-item-name">${meal.name}</span>
                     ${meal.note ? `<span class="meal-item-note">${meal.note}</span>` : ''}
                 </div>
+                ${adminMode ? `
                 <button type="button" class="meal-del-btn" onclick="mealManager.deleteMeal('${meal.id}')" title="Yemeği Sil">
                     <i class="ph-bold ph-trash"></i>
                 </button>
+                ` : ''}
             </div>
         `).join('');
     }
@@ -1588,8 +1668,7 @@ class MealManager {
 // NOT: İstemci tarafındaki statik şifre gerçek bir güvenlik sağlamaz (kaynak koddan okunabilir).
 // Bulut veritabanına geçildiğinde bu kontrol sunucu taraflı kimlik doğrulama ile
 // (ör. Firebase Authentication + Firestore Security Rules) değiştirilmelidir.
-const ADMIN_PASSWORD = 'admin123';
-const ADMIN_SESSION_KEY = 'kantin_admin_oturum_v1';
+// Şifre ve oturum anahtarı dosya başında tanımlanmıştır.
 
 /**
  * Admin veri kaynağı katmanı.
@@ -1631,7 +1710,13 @@ class AdminPanel {
         // Aynı sekmede sayfa yenilense bile oturum korunur (sekme kapanınca sona erer)
         let hasSession = false;
         try { hasSession = sessionStorage.getItem(ADMIN_SESSION_KEY) === '1'; } catch (e) { /* yok say */ }
-        if (hasSession) this.openPanel({ silent: true });
+        if (hasSession) {
+            document.body.classList.add('admin-theme');
+            this.openPanel({ silent: true });
+        } else {
+            document.body.classList.remove('admin-theme');
+            document.body.classList.remove('admin-mode');
+        }
     }
 
     init() {
@@ -1661,6 +1746,10 @@ class AdminPanel {
         this.logoutBtn = document.getElementById('adminLogoutBtn');
         this.refreshBtn = document.getElementById('adminRefreshBtn');
         this.exportBtn = document.getElementById('adminExportBtn');
+        this.viewAppBtn = document.getElementById('adminViewAppBtn');
+        this.activeBar = document.getElementById('adminActiveBar');
+        this.activePanelBtn = document.getElementById('adminActivePanelBtn');
+        this.activeLogoutBtn = document.getElementById('adminActiveLogoutBtn');
         this.sourceStatus = document.getElementById('adminSourceStatus');
         this.tabs = document.querySelectorAll('.admin-tab');
         this.searchInput = document.getElementById('adminSearchInput');
@@ -1688,7 +1777,11 @@ class AdminPanel {
             this.fab.addEventListener('click', (e) => {
                 e.preventDefault();
                 this.haptic();
-                this.openLogin();
+                if (this.isAuthenticated()) {
+                    this.openPanel();
+                } else {
+                    this.openLogin();
+                }
             });
         }
 
@@ -1748,6 +1841,18 @@ class AdminPanel {
         if (this.exportBtn && !this.exportBtn._adminBound) {
             this.exportBtn._adminBound = true;
             this.exportBtn.addEventListener('click', () => this.exportCSV());
+        }
+        if (this.viewAppBtn && !this.viewAppBtn._adminBound) {
+            this.viewAppBtn._adminBound = true;
+            this.viewAppBtn.addEventListener('click', () => this.closePanelToApp());
+        }
+        if (this.activePanelBtn && !this.activePanelBtn._adminBound) {
+            this.activePanelBtn._adminBound = true;
+            this.activePanelBtn.addEventListener('click', () => this.openPanel());
+        }
+        if (this.activeLogoutBtn && !this.activeLogoutBtn._adminBound) {
+            this.activeLogoutBtn._adminBound = true;
+            this.activeLogoutBtn.addEventListener('click', () => this.logout());
         }
 
         if (this.tabs) {
@@ -1867,17 +1972,37 @@ class AdminPanel {
         document.body.style.overflow = '';
 
         document.body.classList.add('admin-mode');
+        document.body.classList.add('admin-theme'); // Yönetici Temasını Devreye Al
         if (this.appContainer) this.appContainer.style.display = 'none';
-        this.fab.style.display = 'none';
-        this.panel.style.display = 'block';
+        if (this.fab) this.fab.style.display = 'none';
+        if (this.panel) this.panel.style.display = 'block';
         this.isOpen = true;
         window.scrollTo(0, 0);
 
         this.refresh();
+        if (window.app) window.app.render();
+        if (window.mealManager) window.mealManager.render();
         if (!silent) {
             this.haptic();
-            this.toast('Yönetim paneline giriş yapıldı.', 'success');
+            this.toast('Yönetim paneline giriş yapıldı. Yönetici teması ve yetkileri aktif.', 'success');
         }
+    }
+
+    /**
+     * Yönetim panelinden Kantin Ana Ekranına geçiş yapar.
+     * Admin oturumu ve teması korunur, yönetici kartlar üzerinde tüm yetkileri kullanabilir.
+     */
+    closePanelToApp() {
+        this.isOpen = false;
+        if (this.panel) this.panel.style.display = 'none';
+        document.body.classList.remove('admin-mode');
+        document.body.classList.add('admin-theme'); // Tema korunur
+        if (this.appContainer) this.appContainer.style.display = '';
+        if (this.fab) this.fab.style.display = '';
+        window.scrollTo(0, 0);
+
+        if (window.app) window.app.render();
+        if (window.mealManager) window.mealManager.render();
     }
 
     logout() {
@@ -1885,13 +2010,20 @@ class AdminPanel {
         try { sessionStorage.removeItem(ADMIN_SESSION_KEY); } catch (e) { /* yok say */ }
 
         this.isOpen = false;
-        this.panel.style.display = 'none';
+        if (this.panel) this.panel.style.display = 'none';
         document.body.classList.remove('admin-mode');
+        document.body.classList.remove('admin-theme'); // Yönetici Teması Kaldırılır
         if (this.appContainer) this.appContainer.style.display = '';
-        this.fab.style.display = '';
+        if (this.fab) this.fab.style.display = '';
         window.scrollTo(0, 0);
 
-        this.toast('Yönetim panelinden çıkış yapıldı.', 'info');
+        if (window.app) window.app.render();
+        if (window.mealManager) window.mealManager.render();
+        this.toast('Yönetici oturumu kapatıldı. Standart kullanıcı kısıtlamaları devrede.', 'info');
+    }
+
+    isAuthenticated() {
+        return isAdmin();
     }
 
     // ---------- Veri ----------
@@ -2263,8 +2395,12 @@ document.addEventListener('click', function (e) {
         if (!window.adminPanel || typeof window.adminPanel.openLogin !== 'function') {
             initAdminPanel();
         }
-        if (window.adminPanel && typeof window.adminPanel.openLogin === 'function') {
-            window.adminPanel.openLogin();
+        if (window.adminPanel) {
+            if (typeof window.adminPanel.isAuthenticated === 'function' && window.adminPanel.isAuthenticated()) {
+                window.adminPanel.openPanel();
+            } else if (typeof window.adminPanel.openLogin === 'function') {
+                window.adminPanel.openLogin();
+            }
         }
     }
 });

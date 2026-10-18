@@ -61,7 +61,7 @@
                 <button id="installAppBtn" class="icon-btn install-btn" title="Telefona Uygulama Olarak Yükle">
                     <i class="ph ph-device-mobile"></i>
                 </button>
-                <button id="exportCsvBtn" class="icon-btn secondary-btn" title="Excel / CSV Olarak İndir">
+                <button id="exportCsvBtn" class="icon-btn secondary-btn admin-only" title="Excel / CSV Olarak İndir">
                     <i class="ph ph-file-arrow-down"></i>
                 </button>
                 <button id="addStudentBtn" class="icon-btn primary" title="Öğrenci Kaydet / Yeni Öğrenci Ekle"
@@ -76,6 +76,24 @@
                 </button>
             </div>
         </header>
+
+        <!-- Admin Aktif Bilgi Çubuğu (Sadece Admin Girişi Yapıldığında Görünür) -->
+        <div id="adminActiveBar" class="admin-active-bar" style="display: none;">
+            <div class="admin-active-info">
+                <i class="ph-bold ph-shield-check"></i>
+                <span><strong>Yönetici Modu:</strong> Tam Yetki Aktif</span>
+            </div>
+            <div class="admin-active-actions">
+                <button type="button" id="adminActivePanelBtn" class="admin-mini-btn" title="Yönetim Paneli Tablosunu Aç">
+                    <i class="ph-bold ph-table"></i>
+                    <span>Panel Tablosu</span>
+                </button>
+                <button type="button" id="adminActiveLogoutBtn" class="admin-mini-btn danger" title="Yönetici Oturumunu Kapat">
+                    <i class="ph-bold ph-sign-out"></i>
+                    <span>Çıkış</span>
+                </button>
+            </div>
+        </div>
 
         <!-- Main Content -->
         <main class="app-main">
@@ -121,7 +139,7 @@
                             <span class="menu-date-sub" id="menuTodayDateText">Yükleniyor...</span>
                         </div>
                     </div>
-                    <button type="button" class="menu-manage-btn" id="openMenuBtn">
+                    <button type="button" class="menu-manage-btn admin-only" id="openMenuBtn">
                         <i class="ph-bold ph-pencil-simple"></i>
                         <span>Menüyü Yönet</span>
                     </button>
@@ -236,6 +254,10 @@
                     </div>
                 </div>
                 <div class="admin-topbar-actions">
+                    <button type="button" id="adminViewAppBtn" class="admin-ghost-btn" title="Kantin Ekranına Geç">
+                        <i class="ph-bold ph-cards"></i>
+                        <span>Kantin Ekranı</span>
+                    </button>
                     <button type="button" id="adminRefreshBtn" class="admin-ghost-btn" title="Verileri Yenile">
                         <i class="ph-bold ph-arrows-clockwise"></i>
                         <span>Yenile</span>
@@ -476,7 +498,7 @@
                 </div>
 
                 <!-- Add Meal Form -->
-                <form id="mealForm" class="meal-form-box">
+                <form id="mealForm" class="meal-form-box admin-only">
                     <div class="meal-form-title">
                         <i class="ph-bold ph-plus-circle"></i>
                         <span>Menüye Yemek Ekle</span>
@@ -516,7 +538,7 @@
                     </div>
 
                     <!-- Preset Sample Menu Button -->
-                    <div class="preset-menu-wrap">
+                    <div class="preset-menu-wrap admin-only">
                         <button type="button" class="btn-preset-menu" id="addSampleMenuBtn">
                             <i class="ph-bold ph-sparkle"></i>
                             <span>Örnek 4 Kap Menü Ekle (Çorba, Ana Yemek, Pilav, Tatlı)</span>

@@ -2556,3 +2556,226 @@ body.admin-mode .admin-fab {
     .admin-logout-btn span { display: none; }
     .admin-logout-btn { width: 42px; padding: 0; }
 }
+
+/* ============================================================
+   STANDART KULLANICI KISITLAMALARI (ADMİN GİRİŞİ YAPILMAMIŞ)
+   ============================================================ */
+/* Admin girişi yapılmadığında yöneticiye özel tüm butonlar ve formlar gizlenir */
+body:not(.admin-theme) .admin-only {
+    display: none !important;
+}
+
+body:not(.admin-theme) .card-actions-wrapper {
+    display: none !important;
+}
+
+body:not(.admin-theme) .admin-active-bar {
+    display: none !important;
+}
+
+body:not(.admin-theme) .meal-del-btn {
+    display: none !important;
+}
+
+/* ============================================================
+   ADMİN ARAYÜZ TEMASI (.admin-theme)
+   Yöneticiye özel prestijli, koyu obsidyen & asil altın/amber renk paleti
+   ve net, yetkili tipografi yapısı
+   ============================================================ */
+body.admin-theme {
+    /* Yönetici Tema Değişkenleri */
+    --bg-color: #070a13;
+    --surface-color: #0f1629;
+    --surface-card: #131c33;
+    --surface-hover: #1c2747;
+    --surface-border: rgba(245, 158, 11, 0.22);
+    --primary-color: #f59e0b;
+    --primary-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%);
+    --primary-hover: #d97706;
+    --shadow-glow: 0 0 25px rgba(245, 158, 11, 0.28);
+
+    /* Arka plan: Lüks radial altın ve indigo ışık kırılmaları */
+    background-color: #070a13 !important;
+    background-image:
+        radial-gradient(ellipse at 50% -10%, rgba(245, 158, 11, 0.14) 0%, transparent 55%),
+        radial-gradient(circle at 10% 25%, rgba(99, 102, 241, 0.08) 0%, transparent 45%),
+        radial-gradient(circle at 90% 75%, rgba(245, 158, 11, 0.07) 0%, transparent 50%) !important;
+    background-attachment: fixed !important;
+
+    /* Yöneticiye Özel Yetkili Font Yapısı */
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    letter-spacing: -0.012em;
+}
+
+/* Admin Teması - Header */
+body.admin-theme .app-header {
+    background: rgba(7, 10, 19, 0.92) !important;
+    border-bottom: 1.5px solid rgba(245, 158, 11, 0.35) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 0 35px rgba(245, 158, 11, 0.08) !important;
+}
+
+body.admin-theme .header-content h1 {
+    background: linear-gradient(135deg, #ffffff 0%, #fef08a 60%, #f59e0b 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.025em;
+}
+
+body.admin-theme .brand-avatar {
+    border-color: rgba(245, 158, 11, 0.6) !important;
+    box-shadow: 0 0 18px rgba(245, 158, 11, 0.45) !important;
+}
+
+body.admin-theme #connectionStatus {
+    color: #fde68a !important;
+}
+
+/* Admin Teması - Aktif Yönetici Bilgi Çubuğu */
+.admin-active-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.16) 0%, rgba(20, 24, 45, 0.75) 100%);
+    border-bottom: 1px solid rgba(245, 158, 11, 0.35);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    position: sticky;
+    top: 68px;
+    z-index: 45;
+    animation: adminBarSlideDown 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes adminBarSlideDown {
+    from {
+        transform: translateY(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.admin-active-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #fef08a;
+    font-weight: 600;
+}
+
+.admin-active-info i {
+    font-size: 19px;
+    color: #f59e0b;
+    filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.6));
+}
+
+.admin-active-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.admin-mini-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: var(--radius-xs);
+    font-size: 12px;
+    font-weight: 700;
+    font-family: inherit;
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    background: rgba(245, 158, 11, 0.18);
+    color: #fef08a;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+}
+
+.admin-mini-btn:hover {
+    background: rgba(245, 158, 11, 0.32);
+    border-color: #f59e0b;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+}
+
+.admin-mini-btn.danger {
+    border-color: rgba(239, 68, 68, 0.45);
+    background: rgba(239, 68, 68, 0.18);
+    color: #fca5a5;
+}
+
+.admin-mini-btn.danger:hover {
+    background: rgba(239, 68, 68, 0.32);
+    border-color: #ef4444;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+}
+
+/* Admin Teması - Kartlar */
+body.admin-theme .student-card {
+    background: #111a30 !important;
+    border-color: rgba(245, 158, 11, 0.22) !important;
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5), 0 0 16px rgba(245, 158, 11, 0.05) !important;
+}
+
+body.admin-theme .student-card:hover {
+    border-color: rgba(245, 158, 11, 0.5) !important;
+    box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.65), 0 0 24px rgba(245, 158, 11, 0.14) !important;
+}
+
+body.admin-theme .stat-card {
+    background: #11192e !important;
+    border-color: rgba(245, 158, 11, 0.2) !important;
+}
+
+body.admin-theme .card-quick-bar {
+    background: rgba(7, 11, 22, 0.88) !important;
+    border-top: 1px solid rgba(245, 158, 11, 0.2) !important;
+}
+
+body.admin-theme .menu-preview-card {
+    background: linear-gradient(135deg, #111a30 0%, #172342 100%) !important;
+    border-color: rgba(245, 158, 11, 0.28) !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 20px rgba(245, 158, 11, 0.08) !important;
+}
+
+body.admin-theme .menu-manage-btn {
+    background: rgba(245, 158, 11, 0.2) !important;
+    color: #fef08a !important;
+    border: 1px solid rgba(245, 158, 11, 0.45) !important;
+}
+
+body.admin-theme .menu-manage-btn:hover {
+    background: rgba(245, 158, 11, 0.35) !important;
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.35) !important;
+}
+
+/* Admin Teması - Butonlar */
+body.admin-theme .btn.primary,
+body.admin-theme .icon-btn.primary {
+    background: var(--primary-gradient) !important;
+    color: #0b1120 !important;
+    font-weight: 700 !important;
+    box-shadow: 0 6px 18px rgba(245, 158, 11, 0.35) !important;
+}
+
+body.admin-theme .btn.primary:hover,
+body.admin-theme .icon-btn.primary:hover {
+    box-shadow: 0 8px 24px rgba(245, 158, 11, 0.5) !important;
+}
+
+body.admin-theme .action-btn.renew-btn {
+    border-color: rgba(245, 158, 11, 0.35) !important;
+    color: #fef08a !important;
+}
+
+body.admin-theme .action-btn.renew-btn:hover {
+    background: rgba(245, 158, 11, 0.2) !important;
+    border-color: #f59e0b !important;
+}
+
