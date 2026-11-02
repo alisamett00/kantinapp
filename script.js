@@ -15,21 +15,43 @@ const firebaseConfig = {
 let app = null;
 let db = null;
 let collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query;
+let rtdb = null;
+let rtdbRef, rtdbOnValue, rtdbSet, rtdbGet;
 
 try {
     const fbApp = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js");
-    const fbFirestore = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
     app = fbApp.initializeApp(firebaseConfig);
-    db = fbFirestore.getFirestore(app);
-    collection = fbFirestore.collection;
-    addDoc = fbFirestore.addDoc;
-    updateDoc = fbFirestore.updateDoc;
-    deleteDoc = fbFirestore.deleteDoc;
-    doc = fbFirestore.doc;
-    onSnapshot = fbFirestore.onSnapshot;
-    query = fbFirestore.query;
 } catch (e) {
-    console.warn("Firebase bulut bağlantısı yüklenemedi. Telefon hafızası (localStorage) aktif:", e);
+    console.warn("Firebase App başlatılamadı. Telefon hafızası (localStorage) aktif:", e);
+}
+
+try {
+    if (app) {
+        const fbFirestore = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js");
+        db = fbFirestore.getFirestore(app);
+        collection = fbFirestore.collection;
+        addDoc = fbFirestore.addDoc;
+        updateDoc = fbFirestore.updateDoc;
+        deleteDoc = fbFirestore.deleteDoc;
+        doc = fbFirestore.doc;
+        onSnapshot = fbFirestore.onSnapshot;
+        query = fbFirestore.query;
+    }
+} catch (e) {
+    console.warn("Firebase Firestore bağlantısı yüklenemedi. Telefon hafızası (localStorage) aktif:", e);
+}
+
+try {
+    if (app) {
+        const fbDatabase = await import("https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js");
+        rtdb = fbDatabase.getDatabase(app);
+        rtdbRef = fbDatabase.ref;
+        rtdbOnValue = fbDatabase.onValue;
+        rtdbSet = fbDatabase.set;
+        rtdbGet = fbDatabase.get;
+    }
+} catch (e) {
+    console.warn("Firebase Realtime Database bağlantısı yüklenemedi:", e);
 }
 
 // ============================================================
@@ -1229,38 +1251,32 @@ class StudentManager {
 }
 
 // ============================================================
-// YEMEK LİSTESİ SİSTEMİ (MEAL MENU MODULE)
+// YEMEK LİSTESİ SİSTEMİ (FIREBASE REALTIME DATABASE: aktif_menu)
 // ============================================================
+const AKTIF_MENU_NODE = 'aktif_menu';
+const AKTIF_MENU_CACHE_KEY = 'kantin_aktif_menu_v1';
 const MEAL_STORAGE_KEY = 'kantin_yemek_listesi_v1';
 const MEAL_LEGACY_KEY = 'yemekListesi';
-const MEAL_SCHEDULE_VERSION_KEY = 'kantin_yemek_takvim_surum';
-const MEAL_SCHEDULE_VERSION = 'ekim-2026-v1';
 
-// EKİM 2026 ÖĞLE MENÜSÜ (1. Yemek | 2. Yemek | 3. Yemek)
-const OFFICIAL_MEAL_SCHEDULE = {
-    '2026-10-01': ['Patates Sulusu', 'Pirinç Pilavı', 'Yoğurt'],
-    '2026-10-02': ['Rosto Köfte', 'Pirinç Pilavı', 'Cacık'],
-    '2026-10-05': ['Etli Nohut Sulusu', 'Bulgur Pilavı', 'Yoğurt'],
-    '2026-10-06': ['Biber Dolması', 'Yoğurtlu Mantı', 'Ezogelin Çorba'],
-    '2026-10-07': ['Patlıcan Parmak Kebabı', 'Bulgur Pilavı', 'Yayla Çorbası'],
-    '2026-10-08': ['Fırın Tavuk Sarma', 'Pirinç Pilavı', 'Cacık'],
-    '2026-10-09': ['İzmir Köfte', 'Mısırlı Pirinç Pilavı', 'Tarhana Çorbası'],
-    '2026-10-12': ['Etli Kuru Fasulye', 'Bulgur Pilavı', 'Yoğurt'],
-    '2026-10-13': ['Karnıyarık', 'Pirinç Pilavı', 'Cacık'],
-    '2026-10-14': ['Bezdirme Köfte', 'Bulgur Pilavı', 'Yayla Çorbası'],
-    '2026-10-15': ['Ekşili Eya Sulusu', 'Pirinç Pilavı', 'Yoğurt'],
-    '2026-10-16': ['Pilav Üstü Tavuk Döner', 'Ezogelin Çorba', 'Ezogelin Çorba'],
-    '2026-10-19': ['Etli Nohut Sulusu', 'Bulgur Pilavı', 'Yoğurt'],
-    '2026-10-20': ['Tavuk Şinitzel', 'Sebzeli Makarna', 'Toyga Çorba'],
-    '2026-10-21': ['Maraş Tava', 'Bulgur Pilavı', 'Cacık'],
-    '2026-10-22': ['Biber Dolması', 'Yoğurtlu Mantı', 'Ezogelin Çorba'],
-    '2026-10-23': ['Fırın Köfte', 'Pirinç Pilavı', 'Cacık'],
-    '2026-10-26': ['Etli Kuru Fasulye', 'Bulgur Pilavı', 'Yoğurt'],
-    '2026-10-27': ['Arap Tava', 'Pirinç Pilavı', 'Cacık'],
-    '2026-10-28': ['Peynirli Kayık Börek', 'Döğmeli Mercimek Çorbası', 'Yoğurt'],
-    '2026-10-29': ['Kasap Köfte+Cips', 'Sebzeli Makarna', 'Yayla Çorbası'],
-    '2026-10-30': ['Tavuk Haşlama', 'Pirinç Pilavı', 'Yoğurt']
-};
+// Firebase 'aktif_menu' düğümü ilk kez oluşturulurken kullanılacak başlangıç verisi
+const INITIAL_SEED_MENU_TEXT = [
+    '02.11.2026 | Etli Nohut Sulusu | Bulgur Pilavı | Yoğurt',
+    '03.11.2026 | Kıskalı Tas Kebabı | Pirinç Pilavı | Cacık',
+    '04.11.2026 | Fırın Tavuk | Sebzeli Makarna | Yayla Çorbası',
+    '05.11.2026 | Patlıcan Güveç | Bulgur Pilavı | Cacık',
+    '06.11.2026 | Bezdirme Köfte | Pirinç Pilavı | Tarhana Çorbası',
+    '09.11.2026 | Etli Kuru Fasulye | Pirinç Pilavı | Yoğurt',
+    '10.11.2026 | Peynirli Ispanak Börek | Toyga Çorba | Salata',
+    '11.11.2026 | Arap Tava | Pirinç Pilavı | Cacık',
+    '12.11.2026 | Kadınbudu Köfte | Sebzeli Makarna | Yayla Çorbası',
+    '13.11.2026 | Pilav Üstü Tavuk Döner | Mercimek Çorbası | Cacık',
+    '23.11.2026 | Etli Kuru Fasulye | Bulgur Pilavı | Yoğurt',
+    '24.11.2026 | Tavuk Haşlama | Pirinç Pilavı | Yoğurt',
+    '25.11.2026 | Yoğurtlu Karnabahar | Sebzeli Makarna | Ezogelin Çorba',
+    '26.11.2026 | Karnıyarık | Bulgur Pilavı | Yayla Çorbası',
+    '27.11.2026 | İzmir Köfte | Pirinç Pilavı | Cacık',
+    '30.11.2026 | Etli Nohut Sulusu | Bulgur Pilavı | Yoğurt'
+].join('\n');
 
 // Yerel (cihaz saati) bugünün tarihi: YYYY-MM-DD (UTC kayması olmadan)
 function getLocalDateString(d = new Date()) {
@@ -1270,44 +1286,255 @@ function getLocalDateString(d = new Date()) {
     return `${y}-${m}-${day}`;
 }
 
+function formatIsoToDotDate(isoDate) {
+    if (!isoDate || !isoDate.includes('-')) return isoDate || '';
+    const [y, m, d] = isoDate.split('-');
+    return `${d}.${m}.${y}`;
+}
+
 function guessMealCategory(name, position) {
-    const n = name.toLocaleLowerCase('tr-TR');
+    const n = String(name || '').toLocaleLowerCase('tr-TR');
     if (n.includes('çorba')) return 'Çorba';
     if (n.includes('yoğurt') && !n.includes('yoğurtlu')) return 'Salata / Meze';
-    if (n.includes('cacık')) return 'Salata / Meze';
+    if (n.includes('cacık') || n.includes('salata') || n.includes('turşu') || n.includes('ezme')) return 'Salata / Meze';
+    if (n.includes('ayran') || n.includes('şalgam') || n.includes('komposto') || n.includes('meyve suyu') || n.includes('hoşaf')) return 'İçecek';
+    if (n.includes('tatlı') || n.includes('baklava') || n.includes('sütlaç') || n.includes('revani') || n.includes('puding') || n.includes('helva')) return 'Tatlı / Meyve';
+    if (n.includes('pilav') || n.includes('makarna') || n.includes('erişte') || n.includes('spagetti')) {
+        return position === 0 && n.includes('pilav üstü') ? 'Ana Yemek' : 'Pilav / Makarna';
+    }
     if (position === 0) return 'Ana Yemek';
     return 'Pilav / Makarna';
 }
 
-function buildOfficialMeals() {
-    const list = [];
-    Object.keys(OFFICIAL_MEAL_SCHEDULE).forEach(date => {
+function extractAktifMenuText(rawVal) {
+    if (rawVal === null || rawVal === undefined) return '';
+    if (typeof rawVal === 'string') return rawVal;
+    if (typeof rawVal === 'object') {
+        if (typeof rawVal.metin === 'string') return rawVal.metin;
+        if (typeof rawVal.text === 'string') return rawVal.text;
+        if (typeof rawVal.menu === 'string') return rawVal.menu;
+        if (Array.isArray(rawVal)) {
+            return rawVal.filter(Boolean).map(item => typeof item === 'string' ? item : JSON.stringify(item)).join('\n');
+        }
+        return Object.entries(rawVal).map(([k, v]) => {
+            if (Array.isArray(v)) return `${k} | ${v.join(' | ')}`;
+            return `${k} | ${String(v ?? '')}`;
+        }).join('\n');
+    }
+    return String(rawVal);
+}
+
+function splitDishItems(lineRest) {
+    const cleaned = String(lineRest || '').trim();
+    if (!cleaned) return [];
+    let parts;
+    if (cleaned.includes('|')) {
+        parts = cleaned.split('|');
+    } else if (cleaned.includes('\t')) {
+        parts = cleaned.split('\t');
+    } else if (cleaned.includes(';')) {
+        parts = cleaned.split(';');
+    } else if (cleaned.includes(',')) {
+        parts = cleaned.split(',');
+    } else if (/\s+[-–]\s+/.test(cleaned)) {
+        parts = cleaned.split(/\s+[-–]\s+/);
+    } else {
+        parts = [cleaned];
+    }
+    return parts
+        .map(p => p.replace(/^(?:\d+\s*[.)\-:]\s*(?:yemek\s*[:\-]?\s*)?|[•*▪▸]\s+)/i, '').trim())
+        .filter(Boolean);
+}
+
+function parseLineDatePrefix(line) {
+    // DD.MM.YYYY, DD/MM/YYYY, DD-MM-YYYY
+    const dmy = line.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})\b[\s|:\-–\t]*(.*)$/);
+    if (dmy) {
+        const day = dmy[1].padStart(2, '0');
+        const month = dmy[2].padStart(2, '0');
+        const year = dmy[3];
+        return { date: `${year}-${month}-${day}`, rest: dmy[4] || '' };
+    }
+    // YYYY-MM-DD, YYYY.MM.DD, YYYY/MM/DD
+    const ymd = line.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})\b[\s|:\-–\t]*(.*)$/);
+    if (ymd) {
+        const year = ymd[1];
+        const month = ymd[2].padStart(2, '0');
+        const day = ymd[3].padStart(2, '0');
+        return { date: `${year}-${month}-${day}`, rest: ymd[4] || '' };
+    }
+    return null;
+}
+
+function stripLeadingWeekday(text) {
+    const trimmed = String(text || '').trim();
+    const lower = trimmed.toLocaleLowerCase('tr-TR');
+    const weekdays = ['pazartesi', 'çarşamba', 'carsamba', 'perşembe', 'persembe', 'cumartesi', 'salı', 'sali', 'cuma', 'pazar'];
+    for (const wd of weekdays) {
+        if (lower.startsWith(wd)) {
+            const after = trimmed.slice(wd.length);
+            if (!after || /^[\s|:\-–\t]/.test(after)) {
+                return after.replace(/^[\s|:\-–\t]+/, '').trim();
+            }
+        }
+    }
+    return trimmed;
+}
+
+function parseAktifMenuText(rawText) {
+    const normalized = String(rawText ?? '').replace(/\r\n/g, '\n').trim();
+    if (!normalized) {
+        return { mode: 'empty', meals: [] };
+    }
+
+    const lines = normalized.split('\n').map(l => l.trim()).filter(Boolean);
+    const datedMeals = [];
+
+    lines.forEach((line, lineIdx) => {
+        const parsedDate = parseLineDatePrefix(line);
+        if (!parsedDate) return;
+        const withoutDayName = stripLeadingWeekday(parsedDate.rest);
+        const dishes = splitDishItems(withoutDayName);
         const seen = new Set();
-        OFFICIAL_MEAL_SCHEDULE[date].forEach((name, idx) => {
-            if (seen.has(name)) return; // aynı yemek iki kez yazılmışsa tek göster
+        dishes.forEach((dishText, idx) => {
+            // İsteğe bağlı "(320 kcal)" not ayrıştırması
+            let name = dishText;
+            let note = '';
+            const noteMatch = dishText.match(/^(.*?)\s*\(([^()]+)\)\s*$/);
+            if (noteMatch && noteMatch[1].trim()) {
+                name = noteMatch[1].trim();
+                note = noteMatch[2].trim();
+            }
+            if (!name || seen.has(name)) return;
             seen.add(name);
-            list.push({
-                id: `off_${date}_${idx + 1}`,
-                date,
+            datedMeals.push({
+                id: `fb_${parsedDate.date}_${lineIdx}_${idx + 1}`,
+                date: parsedDate.date,
                 category: guessMealCategory(name, idx),
                 name,
-                note: '',
+                note,
                 official: true
             });
         });
     });
-    return list;
+
+    if (datedMeals.length > 0) {
+        return { mode: 'dated', meals: datedMeals };
+    }
+
+    // Haftanın günleriyle yazılmış menü kontrolü (örn: "Pazartesi: Kuru Fasulye, Pilav")
+    const weekdayMap = {
+        pazartesi: 1, 'salı': 2, sali: 2, 'çarşamba': 3, carsamba: 3,
+        'perşembe': 4, persembe: 4, cuma: 5, cumartesi: 6, pazar: 0
+    };
+    const weekdayEntries = [];
+    lines.forEach((line, lineIdx) => {
+        const m = line.match(/^([A-Za-zÇĞİÖŞÜçğıöşü]+)\s*[:|\-–\t]\s*(.+)$/);
+        if (!m) return;
+        const key = m[1].toLocaleLowerCase('tr-TR');
+        if (Object.prototype.hasOwnProperty.call(weekdayMap, key)) {
+            weekdayEntries.push({ targetDay: weekdayMap[key], rest: m[2], lineIdx });
+        }
+    });
+
+    if (weekdayEntries.length >= 2) {
+        const now = new Date();
+        const currentDow = now.getDay(); // 0=Pazar, 1=Pazartesi...
+        const mondayOffset = currentDow === 0 ? -6 : 1 - currentDow;
+        const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset);
+        const wdMeals = [];
+        weekdayEntries.forEach(({ targetDay, rest, lineIdx }) => {
+            const offset = targetDay === 0 ? 6 : targetDay - 1;
+            const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + offset);
+            const iso = getLocalDateString(d);
+            const dishes = splitDishItems(rest);
+            dishes.forEach((name, idx) => {
+                wdMeals.push({
+                    id: `fb_wd_${iso}_${lineIdx}_${idx + 1}`,
+                    date: iso,
+                    category: guessMealCategory(name, idx),
+                    name,
+                    note: '',
+                    official: true
+                });
+            });
+        });
+        if (wdMeals.length > 0) {
+            return { mode: 'weekday', meals: wdMeals };
+        }
+    }
+
+    // Doğrudan düz metin / günlük menü modu (tarihsiz metinler doğrudan bugünün aktif menüsü olarak gösterilir)
+    const today = getLocalDateString();
+    const directDishes = [];
+    lines.forEach((line) => {
+        // Sadece başlık satırıysa (örn: "Günün Menüsü:" ve altında başka satırlar varsa) atla
+        if (lines.length > 1 && /menü(sü)?\s*:?$/i.test(line) && !line.includes('|') && !line.includes(',')) {
+            return;
+        }
+        const cleanedLine = line.replace(/^(?:günün\s+menüsü|aktif\s+menü)\s*[:\-]\s*/i, '');
+        if (lines.length === 1 || cleanedLine.includes('|') || cleanedLine.includes('\t')) {
+            directDishes.push(...splitDishItems(cleanedLine));
+        } else {
+            const single = cleanedLine.replace(/^(?:\d+\s*[.)\-:]\s*(?:yemek\s*[:\-]?\s*)?|[•*▪▸\-]\s+)/i, '').trim();
+            if (single) directDishes.push(single);
+        }
+    });
+
+    const directMeals = directDishes.map((dishText, idx) => {
+        let name = dishText;
+        let note = '';
+        const noteMatch = dishText.match(/^(.*?)\s*\(([^()]+)\)\s*$/);
+        if (noteMatch && noteMatch[1].trim()) {
+            name = noteMatch[1].trim();
+            note = noteMatch[2].trim();
+        }
+        return {
+            id: `fb_direct_${idx + 1}`,
+            date: today,
+            category: guessMealCategory(name, idx),
+            name,
+            note,
+            official: true
+        };
+    });
+
+    return { mode: 'direct', meals: directMeals };
+}
+
+function serializeMealsToMenuText(meals, mode = 'dated') {
+    if (!Array.isArray(meals) || meals.length === 0) return '';
+    const uniqueDates = new Set(meals.map(m => m.date).filter(Boolean));
+    if (mode === 'direct' && uniqueDates.size <= 1) {
+        return meals.map(m => m.note ? `${m.name} (${m.note})` : m.name).join('\n');
+    }
+    const grouped = new Map();
+    meals.forEach(m => {
+        const d = m.date || getLocalDateString();
+        if (!grouped.has(d)) grouped.set(d, []);
+        grouped.get(d).push(m.note ? `${m.name} (${m.note})` : m.name);
+    });
+    return Array.from(grouped.keys())
+        .sort()
+        .map(d => `${formatIsoToDotDate(d)} | ${grouped.get(d).join(' | ')}`)
+        .join('\n');
 }
 
 class MealManager {
     constructor() {
-        this.meals = this.loadMeals();
+        this.activeMenuText = '';
+        this.menuMode = 'loading';
+        this.meals = [];
+        this.syncSource = 'connecting';
+        this.isLoadingFromFirebase = true;
+        this.hasReceivedFirebaseData = false;
         this.selectedDate = getLocalDateString();
         this.currentDay = this.selectedDate;
 
         this.initDOM();
         this.bindEvents();
         this.render();
+        this.listenAktifMenu();
         this.startDayWatcher();
     }
 
@@ -1386,6 +1613,205 @@ class MealManager {
         }
     }
 
+    getCachedMenuText() {
+        try {
+            const cached = localStorage.getItem(AKTIF_MENU_CACHE_KEY);
+            if (cached !== null) return cached;
+        } catch (e) {
+            console.warn("Önbellek menü okuma uyarısı:", e);
+        }
+        return null;
+    }
+
+    saveCache(menuText) {
+        try {
+            localStorage.setItem(AKTIF_MENU_CACHE_KEY, menuText);
+            const dataStr = JSON.stringify(this.meals);
+            localStorage.setItem(MEAL_STORAGE_KEY, dataStr);
+            localStorage.setItem(MEAL_LEGACY_KEY, dataStr);
+        } catch (e) {
+            console.warn("Menü önbellek yazma uyarısı:", e);
+        }
+    }
+
+    applyMenuText(rawText, source = 'firebase') {
+        const text = String(rawText ?? '').replace(/\r\n/g, '\n');
+        const parsed = parseAktifMenuText(text);
+        this.activeMenuText = text;
+        this.menuMode = parsed.mode;
+        this.meals = parsed.meals;
+        this.syncSource = source;
+        this.isLoadingFromFirebase = false;
+        this.saveCache(text);
+        this.render();
+        if (window.adminPanel && typeof window.adminPanel.syncMenuEditor === 'function') {
+            window.adminPanel.syncMenuEditor(text, source);
+        }
+    }
+
+    getRestEndpoint() {
+        const base = (firebaseConfig.databaseURL || '').replace(/\/+$/, '');
+        return base ? `${base}/${AKTIF_MENU_NODE}.json` : '';
+    }
+
+    async fetchOrSeedViaRest() {
+        const url = this.getRestEndpoint();
+        if (!url) throw new Error('databaseURL tanımlı değil');
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data === null || data === undefined) {
+            const seed = this.getCachedMenuText() ?? INITIAL_SEED_MENU_TEXT;
+            this.applyMenuText(seed, 'firebase');
+            fetch(url, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(seed)
+            }).catch(err => console.warn("REST aktif_menu ilk oluşturma uyarısı:", err));
+            return;
+        }
+        this.hasReceivedFirebaseData = true;
+        this.applyMenuText(extractAktifMenuText(data), 'firebase');
+    }
+
+    listenAktifMenu() {
+        // Test ortamı adaptörü (varsa)
+        const testAdapter = window.__KANTIN_RTDB_ADAPTER__;
+        if (testAdapter && typeof testAdapter.onValue === 'function') {
+            testAdapter.onValue(AKTIF_MENU_NODE, (val) => {
+                if (val === null || val === undefined) {
+                    const seed = this.getCachedMenuText() ?? INITIAL_SEED_MENU_TEXT;
+                    this.hasReceivedFirebaseData = true;
+                    this.applyMenuText(seed, 'firebase');
+                    if (typeof testAdapter.set === 'function') {
+                        testAdapter.set(AKTIF_MENU_NODE, seed);
+                    }
+                    return;
+                }
+                this.hasReceivedFirebaseData = true;
+                this.applyMenuText(extractAktifMenuText(val), 'firebase');
+            });
+            return;
+        }
+
+        // 1. Firebase Realtime Database SDK üzerinden anlık (real-time) dinleyici
+        if (rtdb && rtdbRef && rtdbOnValue) {
+            try {
+                const menuRef = rtdbRef(rtdb, AKTIF_MENU_NODE);
+                rtdbOnValue(menuRef, (snapshot) => {
+                    this.hasReceivedFirebaseData = true;
+                    if (!snapshot.exists() || snapshot.val() === null) {
+                        const seed = this.getCachedMenuText() ?? INITIAL_SEED_MENU_TEXT;
+                        this.applyMenuText(seed, 'firebase');
+                        if (rtdbSet) {
+                            rtdbSet(menuRef, seed).catch((err) => {
+                                console.warn("Firebase 'aktif_menu' başlangıç düğümü oluşturulamadı:", err);
+                            });
+                        }
+                        return;
+                    }
+                    const text = extractAktifMenuText(snapshot.val());
+                    this.applyMenuText(text, 'firebase');
+                }, (error) => {
+                    console.warn("Firebase 'aktif_menu' okuma hatası, yedek bağlantı deneniyor:", error);
+                    this.fetchOrSeedViaRest().catch(() => {
+                        const fallback = this.getCachedMenuText() ?? INITIAL_SEED_MENU_TEXT;
+                        this.applyMenuText(fallback, 'offline');
+                    });
+                });
+
+                // WebSocket bağlantısı 3.5 sn içinde yanıt vermezse REST/önbellek yedeğini devreye al
+                setTimeout(() => {
+                    if (!this.hasReceivedFirebaseData) {
+                        this.fetchOrSeedViaRest().catch(() => {
+                            if (!this.hasReceivedFirebaseData) {
+                                const fallback = this.getCachedMenuText() ?? INITIAL_SEED_MENU_TEXT;
+                                this.applyMenuText(fallback, 'offline');
+                            }
+                        });
+                    }
+                }, 3500);
+                return;
+            } catch (err) {
+                console.warn("Firebase Realtime Database dinleyici başlatma hatası:", err);
+            }
+        }
+
+        // 2. SDK yüklenemediyse doğrudan Firebase REST API -> çevrimdışı önbellek
+        if (navigator.onLine) {
+            this.fetchOrSeedViaRest().catch(() => {
+                const fallback = this.getCachedMenuText() ?? INITIAL_SEED_MENU_TEXT;
+                this.applyMenuText(fallback, 'offline');
+            });
+        } else {
+            const fallback = this.getCachedMenuText() ?? INITIAL_SEED_MENU_TEXT;
+            this.applyMenuText(fallback, 'offline');
+        }
+    }
+
+    async updateAktifMenu(newMenuText) {
+        if (!isAdmin()) {
+            if (window.app) window.app.showToast('Yemek menüsü güncelleme yetkisi sadece yöneticilere aittir.', 'warning');
+            return { ok: false, error: 'Yetkisiz işlem' };
+        }
+
+        const cleaned = String(newMenuText ?? '').replace(/\r\n/g, '\n').trim();
+
+        // Test adaptörü kontrolü
+        const testAdapter = window.__KANTIN_RTDB_ADAPTER__;
+        if (testAdapter && typeof testAdapter.set === 'function') {
+            await testAdapter.set(AKTIF_MENU_NODE, cleaned);
+            this.applyMenuText(cleaned, 'firebase');
+            return { ok: true, source: 'firebase' };
+        }
+
+        // 1. Firebase Realtime Database SDK ile 'aktif_menu' düğümünü güncelle
+        if (rtdb && rtdbRef && rtdbSet && navigator.onLine) {
+            try {
+                const menuRef = rtdbRef(rtdb, AKTIF_MENU_NODE);
+                const writePromise = rtdbSet(menuRef, cleaned);
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('RTDB_TIMEOUT')), 4500)
+                );
+                await Promise.race([writePromise, timeoutPromise]);
+                this.hasReceivedFirebaseData = true;
+                this.applyMenuText(cleaned, 'firebase');
+                return { ok: true, source: 'firebase' };
+            } catch (err) {
+                if (err && err.message !== 'RTDB_TIMEOUT') {
+                    console.warn("Firebase SDK yazma hatası, REST deneniyor:", err);
+                }
+            }
+        }
+
+        // 2. WebSocket zaman aşımına uğradıysa veya SDK yoksa Firebase REST PUT dene
+        const url = this.getRestEndpoint();
+        if (url && navigator.onLine) {
+            try {
+                const res = await fetch(url, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(cleaned)
+                });
+                if (!res.ok) {
+                    const errBody = await res.text().catch(() => '');
+                    throw new Error(`HTTP ${res.status} ${errBody}`);
+                }
+                this.hasReceivedFirebaseData = true;
+                this.applyMenuText(cleaned, 'firebase');
+                return { ok: true, source: 'firebase' };
+            } catch (restErr) {
+                console.error("Firebase 'aktif_menu' güncelleme hatası:", restErr);
+                this.applyMenuText(cleaned, 'offline');
+                return { ok: false, error: restErr.message || 'Firebase bağlantı hatası' };
+            }
+        }
+
+        // Çevrimdışıysa yerel önbelleği güncelle
+        this.applyMenuText(cleaned, 'offline');
+        return { ok: false, offline: true, error: 'Çevrimdışı mod' };
+    }
+
     openModal() {
         if (!this.mealModal) return;
         if (window.app && window.app.triggerHaptic) window.app.triggerHaptic();
@@ -1404,51 +1830,12 @@ class MealManager {
         this.renderPreview();
     }
 
-    loadMeals() {
-        let stored = [];
-        try {
-            // Check primary and fallback legacy key
-            const raw = localStorage.getItem(MEAL_STORAGE_KEY) || localStorage.getItem(MEAL_LEGACY_KEY);
-            if (raw) {
-                const parsed = JSON.parse(raw);
-                if (Array.isArray(parsed)) stored = parsed;
-            }
-        } catch (e) {
-            console.error("Yemek listesi okuma hatası:", e);
-        }
-
-        const needsSync = localStorage.getItem(MEAL_SCHEDULE_VERSION_KEY) !== MEAL_SCHEDULE_VERSION;
-        if (!needsSync) return stored;
-
-        // Takvim güncellendi: eski örnek/resmi kayıtları temizle, kullanıcının kendi eklediklerini koru
-        const legacySampleIds = ['ymk_1', 'ymk_2', 'ymk_3', 'ymk_4'];
-        const userMeals = stored.filter(m => !m.official && !legacySampleIds.includes(m.id));
-        const merged = [...buildOfficialMeals(), ...userMeals];
-
-        try {
-            const dataStr = JSON.stringify(merged);
-            localStorage.setItem(MEAL_STORAGE_KEY, dataStr);
-            localStorage.setItem(MEAL_LEGACY_KEY, dataStr);
-            localStorage.setItem(MEAL_SCHEDULE_VERSION_KEY, MEAL_SCHEDULE_VERSION);
-        } catch (e) {
-            console.error("Yemek takvimi senkronizasyon hatası:", e);
-        }
-        return merged;
+    async syncMealsListToFirebase() {
+        const serialized = serializeMealsToMenuText(this.meals, this.menuMode === 'direct' ? 'direct' : 'dated');
+        await this.updateAktifMenu(serialized);
     }
 
-    saveMeals() {
-        try {
-            const dataStr = JSON.stringify(this.meals);
-            localStorage.setItem(MEAL_STORAGE_KEY, dataStr);
-            localStorage.setItem(MEAL_LEGACY_KEY, dataStr); // Dual persistence
-            return true;
-        } catch (e) {
-            console.error("Yemek listesi kaydetme hatası:", e);
-            return false;
-        }
-    }
-
-    handleAddMeal() {
+    async handleAddMeal() {
         if (!isAdmin()) {
             if (window.app) window.app.showToast('Yemek menüsü güncelleme yetkisi sadece yöneticilere aittir.', 'warning');
             return;
@@ -1473,37 +1860,35 @@ class MealManager {
         };
 
         this.meals.push(newMeal);
-        this.saveMeals();
+        if (this.menuMode === 'empty') this.menuMode = 'dated';
 
         if (this.mealName) this.mealName.value = '';
         if (this.mealNote) this.mealNote.value = '';
         if (this.mealName) this.mealName.focus();
 
+        await this.syncMealsListToFirebase();
+
         if (window.app) {
             window.app.triggerHaptic();
-            window.app.showToast(`"${name}" menüye eklendi.`, 'success');
+            window.app.showToast(`"${name}" Firebase menüsüne eklendi.`, 'success');
         }
-
-        this.render();
     }
 
-    deleteMeal(id) {
+    async deleteMeal(id) {
         if (!isAdmin()) {
             if (window.app) window.app.showToast('Yemek menüsü güncelleme yetkisi sadece yöneticilere aittir.', 'warning');
             return;
         }
         this.meals = this.meals.filter(m => m.id !== id);
-        this.saveMeals();
+        await this.syncMealsListToFirebase();
 
         if (window.app) {
             window.app.triggerHaptic();
-            window.app.showToast('Yemek menüden silindi.', 'info');
+            window.app.showToast('Yemek Firebase menüsünden silindi.', 'info');
         }
-
-        this.render();
     }
 
-    addSampleMenu() {
+    async addSampleMenu() {
         if (!isAdmin()) {
             if (window.app) window.app.showToast('Yemek menüsü güncelleme yetkisi sadece yöneticilere aittir.', 'warning');
             return;
@@ -1526,12 +1911,13 @@ class MealManager {
             });
         });
 
-        this.saveMeals();
+        if (this.menuMode === 'empty') this.menuMode = 'dated';
+        await this.syncMealsListToFirebase();
+
         if (window.app) {
             window.app.triggerHaptic();
-            window.app.showToast('Örnek 4 kap menü eklendi.', 'success');
+            window.app.showToast('Örnek 4 kap menü Firebase menüsüne eklendi.', 'success');
         }
-        this.render();
     }
 
     getCategoryIcon(category) {
@@ -1553,9 +1939,16 @@ class MealManager {
         return dateObj.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' });
     }
 
+    getMealsForDate(dateStr) {
+        if (this.menuMode === 'direct') {
+            return this.meals;
+        }
+        return this.meals.filter(m => m.date === dateStr);
+    }
+
     shareOnWhatsApp() {
         const targetDate = this.mealSelectedDate ? this.mealSelectedDate.value : this.selectedDate;
-        const dayMeals = this.meals.filter(m => m.date === targetDate);
+        const dayMeals = this.getMealsForDate(targetDate);
 
         if (dayMeals.length === 0) {
             if (window.app) window.app.showToast('Paylaşılacak menü kaydı bulunmuyor.', 'warning');
@@ -1577,10 +1970,12 @@ class MealManager {
         if (!this.mealItemsList) return;
 
         const targetDate = this.mealSelectedDate ? this.mealSelectedDate.value : this.selectedDate;
-        const dayMeals = this.meals.filter(m => m.date === targetDate);
+        const dayMeals = this.getMealsForDate(targetDate);
 
         if (this.mealListDateTitle) {
-            this.mealListDateTitle.textContent = `${this.formatDisplayDate(targetDate)} Menüsü`;
+            this.mealListDateTitle.textContent = this.menuMode === 'direct'
+                ? 'Aktif Yemek Menüsü'
+                : `${this.formatDisplayDate(targetDate)} Menüsü`;
         }
         if (this.mealCountBadge) {
             this.mealCountBadge.textContent = `${dayMeals.length} Yemek`;
@@ -1590,8 +1985,8 @@ class MealManager {
             this.mealItemsList.innerHTML = `
                 <div class="meal-empty-box">
                     <i class="ph-bold ph-cooking-pot"></i>
-                    <p>Bu tarihe henüz yemek eklenmemiş.</p>
-                    <span style="font-size: 11px; color: #94a3b8;">Yukarıdaki formdan yemek ekleyebilir veya örnek menü butonunu kullanabilirsiniz.</span>
+                    <p>Bu tarihe ait yemek menüsü bulunmuyor.</p>
+                    <span style="font-size: 11px; color: #94a3b8;">${isAdmin() ? 'Admin panelindeki "Menüyü Güncelle" kutusundan veya yukarıdaki formdan menüyü güncelleyebilirsiniz.' : 'Hafta sonu veya resmi tatil günlerinde yemek servisi bulunmamaktadır.'}</span>
                 </div>
             `;
             return;
@@ -1601,12 +1996,12 @@ class MealManager {
         this.mealItemsList.innerHTML = dayMeals.map(meal => `
             <div class="meal-item-card">
                 <div class="meal-item-info">
-                    <span class="meal-cat-badge">${this.getCategoryIcon(meal.category)} ${meal.category}</span>
-                    <span class="meal-item-name">${meal.name}</span>
-                    ${meal.note ? `<span class="meal-item-note">${meal.note}</span>` : ''}
+                    <span class="meal-cat-badge">${this.getCategoryIcon(meal.category)} ${escapeHtml(meal.category)}</span>
+                    <span class="meal-item-name">${escapeHtml(meal.name)}</span>
+                    ${meal.note ? `<span class="meal-item-note">${escapeHtml(meal.note)}</span>` : ''}
                 </div>
                 ${adminMode ? `
-                <button type="button" class="meal-del-btn" onclick="mealManager.deleteMeal('${meal.id}')" title="Yemeği Sil">
+                <button type="button" class="meal-del-btn" onclick="mealManager.deleteMeal('${escapeHtml(meal.id)}')" title="Yemeği Sil">
                     <i class="ph-bold ph-trash"></i>
                 </button>
                 ` : ''}
@@ -1616,7 +2011,6 @@ class MealManager {
 
     renderPreview() {
         const today = getLocalDateString();
-        const todayMeals = this.meals.filter(m => m.date === today);
 
         if (this.menuTodayDateText) {
             this.menuTodayDateText.textContent = this.formatDisplayDate(today);
@@ -1624,9 +2018,25 @@ class MealManager {
 
         if (!this.menuPreviewList) return;
 
+        if (this.isLoadingFromFirebase) {
+            this.menuPreviewList.innerHTML = `
+                <span class="menu-empty-hint">Menü Firebase veritabanından yükleniyor...</span>
+            `;
+            return;
+        }
+
+        const todayMeals = this.getMealsForDate(today);
+
+        if (this.menuMode === 'empty') {
+            this.menuPreviewList.innerHTML = `
+                <span class="menu-empty-hint">Aktif yemek menüsü henüz girilmemiş.</span>
+            `;
+            return;
+        }
+
         if (todayMeals.length === 0) {
             this.menuPreviewList.innerHTML = `
-                <span class="menu-empty-hint">Bugün için yemek menüsü bulunmuyor (hafta sonu / tatil). Menüyü yönetmek için butona dokunun.</span>
+                <span class="menu-empty-hint">Bugün için yemek menüsü bulunmuyor (hafta sonu / tatil). ${isAdmin() ? 'Menüyü yönetmek için butona dokunun.' : 'Tüm menüyü görmek için yemek ikonuna dokunun.'}</span>
             `;
             return;
         }
@@ -1634,7 +2044,7 @@ class MealManager {
         this.menuPreviewList.innerHTML = todayMeals.map(m => `
             <div class="menu-preview-pill">
                 <span>${this.getCategoryIcon(m.category)}</span>
-                <span>${m.name}</span>
+                <span>${escapeHtml(m.name)}</span>
             </div>
         `).join('');
     }
@@ -1656,7 +2066,11 @@ class MealManager {
                     this.selectedDate = now;
                     if (this.mealSelectedDate) this.mealSelectedDate.value = now;
                 }
-                this.render();
+                if (this.menuMode === 'direct' || this.menuMode === 'weekday') {
+                    this.applyMenuText(this.activeMenuText, this.syncSource);
+                } else {
+                    this.render();
+                }
             }
         }, 30000);
     }
@@ -1672,13 +2086,10 @@ class MealManager {
 
 /**
  * Admin veri kaynağı katmanı.
- * Şimdilik cihazdaki (StudentManager / MealManager) verileri okur.
- * Bulut veritabanına geçildiğinde yalnızca bu nesnedeki fonksiyonların içeriği
- * (ör. Firestore getDocs / REST fetch) değiştirilir; panel arayüzü aynen çalışmaya devam eder.
  */
 const AdminDataSource = {
     getLabel() {
-        return db ? 'Bulut (Firebase) + Cihaz hafızası' : 'Cihaz hafızası';
+        return (db || rtdb) ? 'Bulut (Firebase) + Cihaz hafızası' : 'Cihaz hafızası';
     },
     async getStudents() {
         return (window.app && Array.isArray(window.app.students)) ? [...window.app.students] : [];
@@ -1769,6 +2180,13 @@ class AdminPanel {
         this.statExpired = document.getElementById('adminStatExpired');
         this.tabStudentsCount = document.getElementById('adminTabStudentsCount');
         this.tabMealsCount = document.getElementById('adminTabMealsCount');
+
+        // Menüyü Güncelle (Firebase aktif_menu)
+        this.menuUpdateCard = document.getElementById('adminMenuUpdateCard');
+        this.menuUpdateForm = document.getElementById('adminMenuUpdateForm');
+        this.menuTextarea = document.getElementById('adminMenuTextarea');
+        this.saveMenuBtn = document.getElementById('adminSaveMenuBtn');
+        this.menuSyncStatus = document.getElementById('adminMenuSyncStatus');
     }
 
     bindEvents() {
@@ -1896,6 +2314,67 @@ class AdminPanel {
                 this.renderTable();
             });
         }
+
+        // Menüyü Güncelle (Firebase aktif_menu) formu
+        if (this.menuUpdateForm && !this.menuUpdateForm._adminBound) {
+            this.menuUpdateForm._adminBound = true;
+            this.menuUpdateForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleSaveMenu();
+            });
+        }
+    }
+
+    syncMenuEditor(menuText, source = 'firebase', { force = false } = {}) {
+        if (this.menuTextarea && (force || document.activeElement !== this.menuTextarea)) {
+            this.menuTextarea.value = menuText ?? '';
+        }
+        if (this.menuSyncStatus) {
+            if (source === 'firebase') {
+                this.menuSyncStatus.innerHTML = '<i class="ph-bold ph-cloud-check"></i> Firebase: aktif_menu bağlı';
+            } else {
+                this.menuSyncStatus.innerHTML = '<i class="ph-bold ph-cloud-slash"></i> Çevrimdışı Önbellek';
+            }
+        }
+    }
+
+    async handleSaveMenu() {
+        if (!this.isAuthenticated()) {
+            this.toast('Menü güncelleme yetkisi sadece yöneticilere aittir.', 'warning');
+            return;
+        }
+        if (!window.mealManager || !this.menuTextarea) return;
+
+        this.haptic();
+        const newText = this.menuTextarea.value;
+        const originalBtnHtml = this.saveMenuBtn ? this.saveMenuBtn.innerHTML : '';
+
+        if (this.saveMenuBtn) {
+            this.saveMenuBtn.disabled = true;
+            this.saveMenuBtn.innerHTML = '<i class="ph-bold ph-arrows-clockwise"></i><span>Kaydediliyor...</span>';
+        }
+
+        try {
+            const result = await window.mealManager.updateAktifMenu(newText);
+            this.syncMenuEditor(window.mealManager.activeMenuText, window.mealManager.syncSource, { force: true });
+            await this.refresh();
+
+            if (result && result.ok) {
+                this.toast('Menü Firebase veritabanında (aktif_menu) başarıyla güncellendi!', 'success');
+            } else if (result && result.offline) {
+                this.toast('İnternet bağlantısı yok: Menü cihaz önbelleğine kaydedildi.', 'warning');
+            } else {
+                this.toast(`Firebase yazma hatası: ${(result && result.error) || 'Bağlantı kurulamadı'}`, 'error');
+            }
+        } catch (err) {
+            console.error('Menü güncelleme hatası:', err);
+            this.toast('Menü güncellenirken beklenmeyen bir hata oluştu.', 'error');
+        } finally {
+            if (this.saveMenuBtn) {
+                this.saveMenuBtn.disabled = false;
+                this.saveMenuBtn.innerHTML = originalBtnHtml;
+            }
+        }
     }
 
     haptic() {
@@ -1981,7 +2460,10 @@ class AdminPanel {
 
         this.refresh();
         if (window.app) window.app.render();
-        if (window.mealManager) window.mealManager.render();
+        if (window.mealManager) {
+            window.mealManager.render();
+            this.syncMenuEditor(window.mealManager.activeMenuText, window.mealManager.syncSource, { force: true });
+        }
         if (!silent) {
             this.haptic();
             this.toast('Yönetim paneline giriş yapıldı. Yönetici teması ve yetkileri aktif.', 'success');
@@ -2269,7 +2751,7 @@ class AdminPanel {
     renderMealCells(row, idx) {
         const icon = window.mealManager ? window.mealManager.getCategoryIcon(row.category) : '🍽️';
         const sourceTag = row.source === 'official'
-            ? '<span class="admin-source-tag"><i class="ph-bold ph-seal-check"></i> Resmi Takvim</span>'
+            ? '<span class="admin-source-tag"><i class="ph-bold ph-cloud-check"></i> Firebase (aktif_menu)</span>'
             : '<span class="admin-source-tag user"><i class="ph-bold ph-user"></i> Elle Eklendi</span>';
         return `
             <td class="cell-index" data-label="#">${idx + 1}</td>

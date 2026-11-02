@@ -303,6 +303,41 @@
                 </div>
             </div>
 
+            <!-- Menüyü Güncelle Kartı (Firebase Realtime Database: aktif_menu) -->
+            <div class="admin-card admin-menu-editor-card admin-only" id="adminMenuUpdateCard">
+                <div class="admin-menu-editor-header">
+                    <div class="admin-menu-editor-title">
+                        <div class="menu-badge-icon"><i class="ph-bold ph-fork-knife"></i></div>
+                        <div>
+                            <h3>Menüyü Güncelle</h3>
+                            <p>Firebase Realtime Database (<code>aktif_menu</code>) üzerinden canlı menü yönetimi</p>
+                        </div>
+                    </div>
+                    <span class="admin-source-tag" id="adminMenuSyncStatus">
+                        <i class="ph-bold ph-cloud-check"></i> Firebase: aktif_menu
+                    </span>
+                </div>
+                <form id="adminMenuUpdateForm" class="admin-menu-editor-body">
+                    <div class="form-group">
+                        <label for="adminMenuTextarea">
+                            <i class="ph-bold ph-notepad"></i>
+                            <span>Aktif Yemek Menüsü Metni</span>
+                        </label>
+                        <textarea id="adminMenuTextarea" rows="7"
+                            placeholder="Günün yemeklerini alt alta yazın veya tarihli aylık liste girin:&#10;02.11.2026 | Etli Nohut Sulusu | Bulgur Pilavı | Yoğurt"></textarea>
+                        <span class="admin-menu-editor-hint">
+                            İpucu: Doğrudan günün yemeklerini alt alta yazabilir veya <strong>GG.AA.YYYY | 1. Yemek | 2. Yemek | 3. Yemek</strong> formatında aylık menü girebilirsiniz. Kaydettiğiniz anda ana sayfadaki menü tüm cihazlarda anlık güncellenir.
+                        </span>
+                    </div>
+                    <div class="admin-menu-editor-actions">
+                        <button type="submit" class="btn primary" id="adminSaveMenuBtn">
+                            <i class="ph-bold ph-floppy-disk"></i>
+                            <span>Menüyü Güncelle ve Kaydet</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
             <!-- Veri Tablosu Kartı -->
             <div class="admin-card">
                 <div class="admin-tabs" role="tablist">

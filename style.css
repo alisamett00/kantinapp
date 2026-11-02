@@ -2779,3 +2779,105 @@ body.admin-theme .action-btn.renew-btn:hover {
     border-color: #f59e0b !important;
 }
 
+/* ============================================================
+   ADMİN PANELİ - MENÜYÜ GÜNCELLE (FIREBASE aktif_menu) KARTI
+   ============================================================ */
+.admin-menu-editor-card {
+    padding: 18px 20px;
+    border-color: rgba(245, 158, 11, 0.28);
+}
+
+.admin-menu-editor-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--surface-border);
+}
+
+.admin-menu-editor-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.admin-menu-editor-title h3 {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text-main);
+    line-height: 1.25;
+}
+
+.admin-menu-editor-title p {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.admin-menu-editor-title code {
+    color: #fcd34d;
+    background: rgba(245, 158, 11, 0.14);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+.admin-menu-editor-body .form-group {
+    margin-bottom: 12px;
+}
+
+#adminMenuTextarea {
+    width: 100%;
+    min-height: 150px;
+    resize: vertical;
+    background-color: var(--surface-color);
+    border: 1px solid var(--surface-border);
+    color: var(--text-main);
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13.5px;
+    line-height: 1.6;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    user-select: text;
+}
+
+#adminMenuTextarea:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+
+.admin-menu-editor-hint {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.45;
+}
+
+.admin-menu-editor-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.admin-menu-editor-actions .btn {
+    flex: 0 1 auto;
+    min-width: 220px;
+}
+
+@media (max-width: 640px) {
+    .admin-menu-editor-card {
+        padding: 14px;
+    }
+
+    .admin-menu-editor-actions .btn {
+        width: 100%;
+        flex: 1 1 100%;
+    }
+}
+
+
