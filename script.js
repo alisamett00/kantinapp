@@ -82,6 +82,8 @@ class StudentManager {
         this.searchQuery = '';
         this.editingId = null;
         this.studentToDelete = null;
+        this.studentToPay = null;
+        this.paidPaymentMap = {};
         this.deferredInstallPrompt = null;
 
         this.initDOM();
@@ -99,6 +101,7 @@ class StudentManager {
         } else {
             console.log("Kayıtlar telefon hafızasında (localStorage) saklanıyor.");
         }
+        this.listenPaymentStatuses();
     }
 
     initDOM() {
@@ -129,6 +132,12 @@ class StudentManager {
         this.confirmCancelBtn = document.getElementById('confirmCancelBtn');
         this.confirmOkBtn = document.getElementById('confirmOkBtn');
         this.confirmMessage = document.getElementById('confirmMessage');
+
+        // Payment Confirm Modal
+        this.paymentConfirmModal = document.getElementById('paymentConfirmModal');
+        this.paymentConfirmCancelBtn = document.getElementById('paymentConfirmCancelBtn');
+        this.paymentConfirmOkBtn = document.getElementById('paymentConfirmOkBtn');
+        this.paymentConfirmMessage = document.getElementById('paymentConfirmMessage');
 
         // Universal Install Modal
         this.installAppModal = document.getElementById('installAppModal');
@@ -276,6 +285,19 @@ class StudentManager {
             if (e.target === this.confirmModal) this.closeConfirmModal();
         });
         this.confirmOkBtn.addEventListener('click', () => this.executeDelete());
+
+        // Payment Confirm Modal events
+        if (this.paymentConfirmCancelBtn) {
+            this.paymentConfirmCancelBtn.addEventListener('click', () => this.closePaymentConfirmModal());
+        }
+        if (this.paymentConfirmModal) {
+            this.paymentConfirmModal.addEventListener('click', (e) => {
+                if (e.target === this.paymentConfirmModal) this.closePaymentConfirmModal();
+            });
+        }
+        if (this.paymentConfirmOkBtn) {
+            this.paymentConfirmOkBtn.addEventListener('click', () => this.executePaymentConfirm());
+        }
 
         // Universal Install Modal events
         if (this.closeInstallModalBtn) {
@@ -545,6 +567,21 @@ class StudentManager {
 
                 if (remoteStudents.length > 0) {
                     // Buluttaki veriler ile yerel verileri harmanla
+                    remoteStudents.forEach(rem => {
+                        const localMatch = this.students.find(loc =>
+                            loc.id === rem.id || (loc.studentNumber && loc.studentNumber === rem.studentNumber)
+                        );
+                        const paymentKey = this.getPaymentKey(rem);
+                        if ((localMatch && localMatch.odemeDurumu === true) || (paymentKey && this.paidPaymentMap[paymentKey] === true)) {
+                            if (rem.odemeDurumu !== true) {
+                                rem.odemeDurumu = true;
+                                if (db && updateDoc && doc && rem.id && !rem.id.toString().startsWith('loc_')) {
+                                    updateDoc(doc(db, "students", rem.id), { odemeDurumu: true }).catch(() => {});
+                                }
+                            }
+                        }
+                    });
+
                     // Henüz buluta iletilmemiş yerel kayıtları ('loc_') koru
                     const localOnly = this.students.filter(local => 
                         local.id && local.id.toString().startsWith('loc_') &&
@@ -620,13 +657,15 @@ class StudentManager {
     async handleSubmit(e) {
         e.preventDefault();
 
+        const existingStudent = this.editingId ? this.students.find(s => s.id === this.editingId) : null;
         const studentData = {
             fullName: this.inputs.fullName.value.trim(),
             studentNumber: this.inputs.studentNumber.value.trim(),
             phoneNumber: this.inputs.phoneNumber.value.trim(),
             registrationDate: this.inputs.registrationDate.value,
             subscriptionEndDate: this.inputs.subscriptionEndDate.value,
-            status: this.inputs.status.value
+            status: this.inputs.status.value,
+            odemeDurumu: existingStudent ? Boolean(existingStudent.odemeDurumu) : false
         };
 
         if (!studentData.fullName || !studentData.studentNumber || !studentData.registrationDate || !studentData.subscriptionEndDate) {
@@ -819,6 +858,178 @@ class StudentManager {
             } catch (error) {
                 console.warn("Bulut silme hatası:", error);
             }
+        }
+    }
+
+    getPaymentKey(student) {
+        if (!student) return '';
+        const raw = String(student.studentNumber || student.id || '').trim();
+        return raw.replace(/[.#$/\[\]\s]/g, '_');
+    }
+
+    applyPaidMap(mapObj) {
+        if (!mapObj || typeof mapObj !== 'object') return;
+        let changed = false;
+        Object.entries(mapObj).forEach(([key, val]) => {
+            const isPaid = val === true || (val && typeof val === 'object' && val.odemeDurumu === true);
+            if (isPaid) {
+                this.paidPaymentMap[key] = true;
+            }
+        });
+        this.students.forEach(s => {
+            const k = this.getPaymentKey(s);
+            if ((k && this.paidPaymentMap[k] === true) || (s.id && this.paidPaymentMap[s.id] === true)) {
+                if (s.odemeDurumu !== true) {
+                    s.odemeDurumu = true;
+                    changed = true;
+                }
+            }
+        });
+        if (changed) {
+            this.saveToStorage();
+            this.render();
+        }
+    }
+
+    listenPaymentStatuses() {
+        const testAdapter = window.__KANTIN_RTDB_ADAPTER__;
+        if (testAdapter && typeof testAdapter.onValue === 'function') {
+            testAdapter.onValue('ogrenci_odemeleri', (val) => {
+                if (val && typeof val === 'object') {
+                    this.applyPaidMap(val);
+                }
+            });
+            return;
+        }
+
+        if (rtdb && rtdbRef && rtdbOnValue) {
+            try {
+                const payRef = rtdbRef(rtdb, 'ogrenci_odemeleri');
+                rtdbOnValue(payRef, (snapshot) => {
+                    if (snapshot.exists()) {
+                        this.applyPaidMap(snapshot.val());
+                    }
+                }, (err) => {
+                    console.warn("Firebase ödeme durumu dinleme uyarısı:", err);
+                });
+            } catch (e) {
+                console.warn("Ödeme durumu dinleyicisi başlatılamadı:", e);
+            }
+        }
+
+        const base = (firebaseConfig.databaseURL || '').replace(/\/+$/, '');
+        if (base && navigator.onLine) {
+            fetch(`${base}/ogrenci_odemeleri.json`, { cache: 'no-store' })
+                .then(r => r.ok ? r.json() : null)
+                .then(data => {
+                    if (data && typeof data === 'object') {
+                        this.applyPaidMap(data);
+                    }
+                })
+                .catch(() => {});
+        }
+    }
+
+    confirmPayment(id) {
+        this.triggerHaptic();
+        const student = this.students.find(s => s.id === id);
+        if (!student) return;
+
+        if (student.odemeDurumu === true) {
+            this.showToast(`${student.fullName} için aylık ödeme zaten onaylanmış.`, 'info');
+            return;
+        }
+
+        this.studentToPay = student;
+        if (this.paymentConfirmModal && this.paymentConfirmMessage) {
+            this.paymentConfirmMessage.innerHTML = `<strong>${escapeHtml(student.fullName)}</strong> (${escapeHtml(student.studentNumber)}) — Öğrencinin aylık ödeme yaptığını onaylıyor musunuz?`;
+            this.paymentConfirmModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        } else {
+            const approved = window.confirm('Öğrencinin aylık ödeme yaptığını onaylıyor musunuz?');
+            if (approved) {
+                this.executePaymentConfirm();
+            } else {
+                this.studentToPay = null;
+            }
+        }
+    }
+
+    closePaymentConfirmModal() {
+        if (this.paymentConfirmModal) {
+            this.paymentConfirmModal.classList.remove('active');
+        }
+        document.body.style.overflow = '';
+        this.studentToPay = null;
+    }
+
+    async executePaymentConfirm() {
+        if (!this.studentToPay) return;
+        this.triggerHaptic();
+
+        const student = this.studentToPay;
+        student.odemeDurumu = true;
+
+        const key = this.getPaymentKey(student);
+        if (key) this.paidPaymentMap[key] = true;
+
+        // 1. Yerel hafızada hemen güncelle ve arayüzü yenile
+        this.saveToStorage();
+        this.render();
+        this.closePaymentConfirmModal();
+        this.showToast(`${student.fullName} için aylık ödeme onaylandı!`, 'success');
+
+        // 2. Firebase veritabanına kalıcı olarak kaydet (Firestore + Realtime Database)
+        await this.savePaymentToFirebase(student);
+    }
+
+    async savePaymentToFirebase(student) {
+        if (!student) return;
+        const key = this.getPaymentKey(student);
+        const payload = {
+            odemeDurumu: true,
+            studentId: student.id,
+            studentNumber: student.studentNumber,
+            fullName: student.fullName
+        };
+
+        // Test adaptörü kontrolü
+        const testAdapter = window.__KANTIN_RTDB_ADAPTER__;
+        if (testAdapter && typeof testAdapter.set === 'function') {
+            const current = (typeof testAdapter.getState === 'function' ? testAdapter.getState().ogrenci_odemeleri : null) || {};
+            current[key || student.id] = payload;
+            await testAdapter.set('ogrenci_odemeleri', current);
+        }
+
+        // A) Firestore 'students' koleksiyonundaki öğrenci kaydına odemeDurumu: true yaz
+        if (db && updateDoc && doc && student.id && !student.id.toString().startsWith('loc_')) {
+            try {
+                const studentRef = doc(db, "students", student.id);
+                await updateDoc(studentRef, { odemeDurumu: true });
+            } catch (err) {
+                console.warn("Firestore ödeme durumu güncelleme uyarısı:", err);
+            }
+        } else if (db && student.id && student.id.toString().startsWith('loc_')) {
+            this.syncLocalToCloud();
+        }
+
+        // B) Firebase Realtime Database üzerinde de öğrenci ödeme kaydını senkronize et
+        if (rtdb && rtdbRef && rtdbSet && key) {
+            try {
+                const payNodeRef = rtdbRef(rtdb, `ogrenci_odemeleri/${key}`);
+                rtdbSet(payNodeRef, payload).catch(() => {});
+            } catch (e) {
+                console.warn("RTDB ödeme kaydı uyarısı:", e);
+            }
+        }
+
+        const base = (firebaseConfig.databaseURL || '').replace(/\/+$/, '');
+        if (base && key && navigator.onLine) {
+            fetch(`${base}/ogrenci_odemeleri/${encodeURIComponent(key)}.json`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).catch(() => {});
         }
     }
 
@@ -1192,6 +1403,8 @@ class StudentManager {
                 `;
             }
 
+            const isPaid = student.odemeDurumu === true;
+
             return `
                 <div class="student-card ${cardModifierClass}">
                     <div class="student-card-header">
@@ -1202,9 +1415,14 @@ class StudentManager {
                                 ${student.phoneNumber ? `<span class="student-meta-item"><i class="ph ph-phone"></i> ${student.phoneNumber}</span>` : ''}
                             </div>
                         </div>
-                        <span class="status-badge ${statusClass}">
-                            ${statusText}
-                        </span>
+                        <div class="student-header-right">
+                            <span class="status-badge ${statusClass}">
+                                ${statusText}
+                            </span>
+                            <button type="button" class="payment-status-btn ${isPaid ? 'paid' : 'unpaid'}" onclick="app.confirmPayment('${student.id}')" title="${isPaid ? 'Aylık ödeme onaylandı' : 'Aylık ödemeyi onaylamak için tıklayın'}">
+                                ${isPaid ? '✓ Ödeme Yaptı' : '<i class="ph ph-hand-coins"></i> Ödeme Al'}
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="student-card-body">

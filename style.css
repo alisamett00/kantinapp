@@ -2880,4 +2880,106 @@ body.admin-theme .action-btn.renew-btn:hover {
     }
 }
 
+/* ============================================================
+   AYLIK ÖDEME TAKİBİ VE KART ÜST ALAN GENİŞLETME STİLLERİ
+   ============================================================ */
+.student-card {
+    padding: 18px;
+    gap: 14px;
+}
+
+.student-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    padding-bottom: 4px;
+}
+
+.student-info {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-top: 2px;
+}
+
+.student-info h3 {
+    font-size: 16.5px;
+    line-height: 1.3;
+    margin-bottom: 6px;
+}
+
+.student-meta-tags {
+    gap: 10px;
+    font-size: 12.5px;
+}
+
+.student-header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.payment-status-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: var(--radius-xs);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+.payment-status-btn:active {
+    transform: scale(0.95);
+}
+
+.payment-status-btn.unpaid {
+    background: rgba(59, 130, 246, 0.12);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.28);
+}
+
+.payment-status-btn.unpaid:hover {
+    background: #3b82f6;
+    color: #ffffff;
+    border-color: #3b82f6;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+}
+
+.payment-status-btn.paid {
+    background: rgba(37, 211, 102, 0.14);
+    color: #25d366;
+    border: 1px solid rgba(37, 211, 102, 0.32);
+    font-weight: 700;
+}
+
+.payment-status-btn.paid:hover {
+    background: rgba(37, 211, 102, 0.22);
+    border-color: #25d366;
+}
+
+.payment-icon-wrapper {
+    background: var(--success-bg);
+    color: var(--success);
+}
+
+.btn.success-btn {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #ffffff;
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+}
+
+.btn.success-btn:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+}
+
+
 
