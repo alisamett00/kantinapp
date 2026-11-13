@@ -572,13 +572,16 @@ class StudentManager {
                             loc.id === rem.id || (loc.studentNumber && loc.studentNumber === rem.studentNumber)
                         );
                         const paymentKey = this.getPaymentKey(rem);
-                        if ((localMatch && localMatch.odemeDurumu === true) || (paymentKey && this.paidPaymentMap[paymentKey] === true)) {
-                            if (rem.odemeDurumu !== true) {
-                                rem.odemeDurumu = true;
-                                if (db && updateDoc && doc && rem.id && !rem.id.toString().startsWith('loc_')) {
-                                    updateDoc(doc(db, "students", rem.id), { odemeDurumu: true }).catch(() => {});
-                                }
+                        if (typeof rem.odemeDurumu !== 'boolean') {
+                            if (paymentKey && typeof this.paidPaymentMap[paymentKey] === 'boolean') {
+                                rem.odemeDurumu = this.paidPaymentMap[paymentKey];
+                            } else if (localMatch && typeof localMatch.odemeDurumu === 'boolean') {
+                                rem.odemeDurumu = localMatch.odemeDurumu;
+                            } else {
+                                rem.odemeDurumu = false;
                             }
+                        } else if (paymentKey && typeof this.paidPaymentMap[paymentKey] === 'boolean') {
+                            rem.odemeDurumu = this.paidPaymentMap[paymentKey];
                         }
                     });
 
@@ -871,18 +874,20 @@ class StudentManager {
         if (!mapObj || typeof mapObj !== 'object') return;
         let changed = false;
         Object.entries(mapObj).forEach(([key, val]) => {
-            const isPaid = val === true || (val && typeof val === 'object' && val.odemeDurumu === true);
-            if (isPaid) {
+            if (val === true || (val && typeof val === 'object' && val.odemeDurumu === true)) {
                 this.paidPaymentMap[key] = true;
+            } else if (val === false || (val && typeof val === 'object' && val.odemeDurumu === false)) {
+                this.paidPaymentMap[key] = false;
             }
         });
         this.students.forEach(s => {
             const k = this.getPaymentKey(s);
-            if ((k && this.paidPaymentMap[k] === true) || (s.id && this.paidPaymentMap[s.id] === true)) {
-                if (s.odemeDurumu !== true) {
-                    s.odemeDurumu = true;
-                    changed = true;
-                }
+            const mapVal = (k && typeof this.paidPaymentMap[k] === 'boolean')
+                ? this.paidPaymentMap[k]
+                : (s.id && typeof this.paidPaymentMap[s.id] === 'boolean' ? this.paidPaymentMap[s.id] : undefined);
+            if (typeof mapVal === 'boolean' && Boolean(s.odemeDurumu) !== mapVal) {
+                s.odemeDurumu = mapVal;
+                changed = true;
             }
         });
         if (changed) {
@@ -948,6 +953,7 @@ class StudentManager {
 
         const key = this.getPaymentKey(student);
         if (key) this.paidPaymentMap[key] = true;
+        if (student.id) this.paidPaymentMap[student.id] = true;
 
         // Buton görünümünü anında güncelle ve yerel hafızaya kaydet
         const btnEl = document.getElementById(`odemeBtn-${student.id}`);
@@ -962,7 +968,40 @@ class StudentManager {
         this.showToast(`${student.fullName} için aylık ödeme onaylandı!`, 'success');
 
         // Firebase veritabanına kalıcı olarak odemeDurumu: true yaz
-        await this.savePaymentToFirebase(student);
+        await this.savePaymentToFirebase(student, true);
+    }
+
+    async cancelPayment(id) {
+        // GÜVENLİK KONTROLÜ: Sadece Admin girişi yapılmışsa ödeme iptal edilebilir
+        if (!isAdmin()) {
+            this.showToast('Ödeme iptal etme yetkisi sadece yöneticilere (Admin) aittir!', 'warning');
+            return;
+        }
+
+        this.triggerHaptic();
+        const student = this.students.find(s => String(s.id) === String(id));
+        if (!student) return;
+
+        if (student.odemeDurumu !== true) {
+            return;
+        }
+
+        const onay = window.confirm("Ödemeyi iptal etmek istediğinize emin misiniz?");
+        if (!onay) return;
+
+        // Onay verildiğinde ödeme durumunu false yap ve tekrar "Ödeme Al" haline döndür
+        student.odemeDurumu = false;
+
+        const key = this.getPaymentKey(student);
+        if (key) this.paidPaymentMap[key] = false;
+        if (student.id) this.paidPaymentMap[student.id] = false;
+
+        this.saveToStorage();
+        this.render();
+        this.showToast(`${student.fullName} için ödeme iptal edildi.`, 'info');
+
+        // Firebase veritabanında odemeDurumu: false olarak güncelle
+        await this.savePaymentToFirebase(student, false);
     }
 
     closePaymentConfirmModal() {
@@ -982,17 +1021,19 @@ class StudentManager {
         student.odemeDurumu = true;
         const key = this.getPaymentKey(student);
         if (key) this.paidPaymentMap[key] = true;
+        if (student.id) this.paidPaymentMap[student.id] = true;
         this.saveToStorage();
         this.render();
         this.showToast(`${student.fullName} için aylık ödeme onaylandı!`, 'success');
-        await this.savePaymentToFirebase(student);
+        await this.savePaymentToFirebase(student, true);
     }
 
-    async savePaymentToFirebase(student) {
+    async savePaymentToFirebase(student, status = true) {
         if (!student) return;
+        const isPaidStatus = Boolean(status);
         const key = this.getPaymentKey(student);
         const payload = {
-            odemeDurumu: true,
+            odemeDurumu: isPaidStatus,
             studentId: student.id,
             studentNumber: student.studentNumber,
             fullName: student.fullName
@@ -1006,11 +1047,11 @@ class StudentManager {
             await testAdapter.set('ogrenci_odemeleri', current);
         }
 
-        // A) Firestore 'students' koleksiyonundaki öğrenci kaydına odemeDurumu: true yaz
+        // A) Firestore 'students' koleksiyonundaki öğrenci kaydına odemeDurumu (true / false) yaz
         if (db && updateDoc && doc && student.id && !student.id.toString().startsWith('loc_')) {
             try {
                 const studentRef = doc(db, "students", student.id);
-                await updateDoc(studentRef, { odemeDurumu: true });
+                await updateDoc(studentRef, { odemeDurumu: isPaidStatus });
             } catch (err) {
                 console.warn("Firestore ödeme durumu güncelleme uyarısı:", err);
             }
@@ -1410,6 +1451,46 @@ class StudentManager {
 
             const isPaid = student.odemeDurumu === true;
 
+            // Ödeme durumu butonu ve SADECE Admin girişi aktifken görünen kırmızı İptal (✖) butonu
+            let paymentActionHtml = '';
+            if (isPaid) {
+                paymentActionHtml = `
+                    <div class="payment-action-group">
+                        <button
+                            type="button"
+                            id="odemeBtn-${student.id}"
+                            class="payment-status-btn paid"
+                            data-student-id="${student.id}"
+                            title="Aylık ödeme onaylandı">
+                            ✓ Ödeme Yaptı
+                        </button>
+                        ${adminMode ? `
+                        <button
+                            type="button"
+                            id="odemeIptalBtn-${student.id}"
+                            class="payment-cancel-btn"
+                            data-cancel-student-id="${student.id}"
+                            title="Ödemeyi İptal Et (Sadece Admin)">
+                            ✖
+                        </button>
+                        ` : ''}
+                    </div>
+                `;
+            } else {
+                paymentActionHtml = `
+                    <div class="payment-action-group">
+                        <button
+                            type="button"
+                            id="odemeBtn-${student.id}"
+                            class="payment-status-btn unpaid"
+                            data-student-id="${student.id}"
+                            title="Aylık ödemeyi onaylamak için tıklayın">
+                            <i class="ph ph-hand-coins"></i> Ödeme Al
+                        </button>
+                    </div>
+                `;
+            }
+
             return `
                 <div class="student-card ${cardModifierClass}" data-card-id="${student.id}">
                     <div class="student-card-header">
@@ -1424,14 +1505,7 @@ class StudentManager {
                             <span class="status-badge ${statusClass}">
                                 ${statusText}
                             </span>
-                            <button
-                                type="button"
-                                id="odemeBtn-${student.id}"
-                                class="payment-status-btn ${isPaid ? 'paid' : 'unpaid'}"
-                                data-student-id="${student.id}"
-                                title="${isPaid ? 'Aylık ödeme onaylandı' : 'Aylık ödemeyi onaylamak için tıklayın'}">
-                                ${isPaid ? '✓ Ödeme Yaptı' : '<i class="ph ph-hand-coins"></i> Ödeme Al'}
-                            </button>
+                            ${paymentActionHtml}
                         </div>
                     </div>
                     
@@ -1488,6 +1562,21 @@ class StudentManager {
                 }
             });
         });
+
+        // Sadece Admin girişi aktifken oluşturulan İptal (✖) butonlarına tıklama olayını bağla
+        if (adminMode) {
+            const cancelButtons = this.studentsList.querySelectorAll('.payment-cancel-btn');
+            cancelButtons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const studentId = btn.getAttribute('data-cancel-student-id');
+                    if (studentId) {
+                        this.cancelPayment(studentId);
+                    }
+                });
+            });
+        }
     }
 }
 

@@ -2921,6 +2921,13 @@ body.admin-theme .action-btn.renew-btn:hover {
     flex-shrink: 0;
 }
 
+.payment-action-group {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+}
+
 .payment-status-btn {
     display: inline-flex;
     align-items: center;
@@ -2963,6 +2970,36 @@ body.admin-theme .action-btn.renew-btn:hover {
 .payment-status-btn.paid:hover {
     background: rgba(37, 211, 102, 0.22);
     border-color: #25d366;
+}
+
+.payment-cancel-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    border-radius: var(--radius-xs);
+    background: rgba(239, 68, 68, 0.14);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    flex-shrink: 0;
+}
+
+.payment-cancel-btn:hover {
+    background: #ef4444;
+    color: #ffffff;
+    border-color: #ef4444;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+.payment-cancel-btn:active {
+    transform: scale(0.92);
 }
 
 .payment-icon-wrapper {
