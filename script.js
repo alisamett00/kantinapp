@@ -930,9 +930,9 @@ class StudentManager {
         }
     }
 
-    confirmPayment(id) {
+    async confirmPayment(id) {
         this.triggerHaptic();
-        const student = this.students.find(s => s.id === id);
+        const student = this.students.find(s => String(s.id) === String(id));
         if (!student) return;
 
         if (student.odemeDurumu === true) {
@@ -940,19 +940,29 @@ class StudentManager {
             return;
         }
 
-        this.studentToPay = student;
-        if (this.paymentConfirmModal && this.paymentConfirmMessage) {
-            this.paymentConfirmMessage.innerHTML = `<strong>${escapeHtml(student.fullName)}</strong> (${escapeHtml(student.studentNumber)}) — Öğrencinin aylık ödeme yaptığını onaylıyor musunuz?`;
-            this.paymentConfirmModal.classList.add('active');
-            document.body.style.overflow = 'hidden';
-        } else {
-            const approved = window.confirm('Öğrencinin aylık ödeme yaptığını onaylıyor musunuz?');
-            if (approved) {
-                this.executePaymentConfirm();
-            } else {
-                this.studentToPay = null;
-            }
+        const onay = window.confirm("Öğrencinin aylık ödeme yaptığını onaylıyor musunuz?");
+        if (!onay) return;
+
+        // Onay verildiğinde durumu hemen güncelle
+        student.odemeDurumu = true;
+
+        const key = this.getPaymentKey(student);
+        if (key) this.paidPaymentMap[key] = true;
+
+        // Buton görünümünü anında güncelle ve yerel hafızaya kaydet
+        const btnEl = document.getElementById(`odemeBtn-${student.id}`);
+        if (btnEl) {
+            btnEl.classList.remove('unpaid');
+            btnEl.classList.add('paid');
+            btnEl.innerHTML = '✓ Ödeme Yaptı';
         }
+
+        this.saveToStorage();
+        this.render();
+        this.showToast(`${student.fullName} için aylık ödeme onaylandı!`, 'success');
+
+        // Firebase veritabanına kalıcı olarak odemeDurumu: true yaz
+        await this.savePaymentToFirebase(student);
     }
 
     closePaymentConfirmModal() {
@@ -965,21 +975,16 @@ class StudentManager {
 
     async executePaymentConfirm() {
         if (!this.studentToPay) return;
-        this.triggerHaptic();
-
-        const student = this.studentToPay;
+        const targetId = this.studentToPay.id;
+        this.closePaymentConfirmModal();
+        const student = this.students.find(s => String(s.id) === String(targetId));
+        if (!student) return;
         student.odemeDurumu = true;
-
         const key = this.getPaymentKey(student);
         if (key) this.paidPaymentMap[key] = true;
-
-        // 1. Yerel hafızada hemen güncelle ve arayüzü yenile
         this.saveToStorage();
         this.render();
-        this.closePaymentConfirmModal();
         this.showToast(`${student.fullName} için aylık ödeme onaylandı!`, 'success');
-
-        // 2. Firebase veritabanına kalıcı olarak kaydet (Firestore + Realtime Database)
         await this.savePaymentToFirebase(student);
     }
 
@@ -1406,7 +1411,7 @@ class StudentManager {
             const isPaid = student.odemeDurumu === true;
 
             return `
-                <div class="student-card ${cardModifierClass}">
+                <div class="student-card ${cardModifierClass}" data-card-id="${student.id}">
                     <div class="student-card-header">
                         <div class="student-info">
                             <h3>${student.fullName}</h3>
@@ -1419,7 +1424,12 @@ class StudentManager {
                             <span class="status-badge ${statusClass}">
                                 ${statusText}
                             </span>
-                            <button type="button" class="payment-status-btn ${isPaid ? 'paid' : 'unpaid'}" onclick="app.confirmPayment('${student.id}')" title="${isPaid ? 'Aylık ödeme onaylandı' : 'Aylık ödemeyi onaylamak için tıklayın'}">
+                            <button
+                                type="button"
+                                id="odemeBtn-${student.id}"
+                                class="payment-status-btn ${isPaid ? 'paid' : 'unpaid'}"
+                                data-student-id="${student.id}"
+                                title="${isPaid ? 'Aylık ödeme onaylandı' : 'Aylık ödemeyi onaylamak için tıklayın'}">
                                 ${isPaid ? '✓ Ödeme Yaptı' : '<i class="ph ph-hand-coins"></i> Ödeme Al'}
                             </button>
                         </div>
@@ -1465,6 +1475,19 @@ class StudentManager {
                 </div>
             `;
         }).join('');
+
+        // Her bir öğrenci kartındaki ödeme butonuna tıklama (click) olayını doğrudan bağla
+        const paymentButtons = this.studentsList.querySelectorAll('.payment-status-btn');
+        paymentButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const studentId = btn.getAttribute('data-student-id');
+                if (studentId) {
+                    this.confirmPayment(studentId);
+                }
+            });
+        });
     }
 }
 
